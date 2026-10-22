@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/common.schema.json",
+  "title": "agentgw shared definitions",
+  "description": "Types reused by more than one agentgw schema. Not a document schema; has no example. Version 1.",
+  "$defs": {
+    "version": {
+      "type": "string",
+      "const": "1",
+      "description": "Schema version of this document. Every breaking change bumps it."
+    },
+    "money": {
+      "type": "object",
+      "description": "An amount of money as an integer count of micro-units (1/1,000,000 of the currency unit). 5000 USD micros = $0.005. Never a float.",
+      "properties": {
+        "micros": { "type": "integer", "minimum": 0 },
+        "currency": { "$ref": "#/$defs/currency" }
+      },
+      "required": ["micros", "currency"],
+      "additionalProperties": false
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 code, upper case."
+    },
+    "window": {
+      "type": "string",
+      "enum": ["per_run", "daily", "monthly"],
+      "description": "Budget window. per_run is keyed by run_id; daily and monthly roll over at 00:00 UTC."
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lower-case hex SHA-256."
+    },
+    "ed25519_pubkey_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lower-case hex of a 32-byte Ed25519 public key."
+    },
+    "ed25519_sig_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{128}$",
+      "description": "Lower-case hex of a 64-byte Ed25519 signature."
+    },
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "ULID, Crockford base32, upper case."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["allow", "deny", "require_approval"],
+      "description": "Policy decision outcome."
+    },
+    "principal": {
+      "type": "object",
+      "description": "Who is calling. agent_id and owner come from gateway config; run_id is one gateway process (or --run flag); session_id is the MCP session.",
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "description": "Human or team responsible for the agent. Free-form, e.g. an email." },
+        "run_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string" }
+      },
+      "required": ["agent_id", "owner", "run_id", "session_id"],
+      "additionalProperties": false
+    },
+    "server_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Upstream name from gateway config. No dots, so '<server>.<tool>' splits on the first dot."
+    },
+    "approval_spec": {
+      "type": "object",
+      "description": "How to obtain approval when outcome is require_approval.",
+      "properties": {
+        "approvers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Approver ids allowed to decide. Empty means any approver known to the configured surfaces."
+        },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "description": "Wait this long before ErrApprovalTimeout." }
+      },
+      "required": ["approvers", "timeout_seconds"],
+      "additionalProperties": false
+    },
+    "grant": {
+      "type": "object",
+      "description": "A standing approval: calls matching (agent_id, [run_id], server, tool) before `until` are allowed without prompting. scope=run grants carry the run_id and die with the run; scope=agent grants apply to every run of the agent until `until`.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "approval_id": { "type": "string", "minLength": 1, "description": "The approval that issued this grant." },
+        "scope": { "type": "string", "enum": ["run", "agent"] },
+        "agent_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "description": "Required when scope is run; empty otherwise." },
+        "server": { "$ref": "#/$defs/server_name" },
+        "tool": { "type": "string", "minLength": 1, "description": "Exact tool name, not a glob." },
+        "until": { "type": "string", "format": "date-time", "description": "UTC RFC 3339. Required for scope=agent." }
+      },
+      "required": ["id", "approval_id", "scope", "agent_id", "run_id", "server", "tool", "until"],
+      "additionalProperties": false
+    },
+    "approval_decision": {
+      "type": "object",
+      "description": "A human's decision on one approval. Bound to the exact call id and args hash. approver_sig is the Ed25519 signature (hex) by the approver's token over the JCS (RFC 8785) bytes of {\"approval_id\",\"args_hash\",\"decision\",\"ts\"} where ts is the RFC 3339 UTC string below. Empty when the surface has no key (e.g. Slack), in which case approver_id is the surface's user id.",
+      "properties": {
+        "approval_id": { "type": "string", "minLength": 1 },
+        "call_id": { "type": "string", "minLength": 1 },
+        "args_hash": { "$ref": "#/$defs/sha256_hex" },
+        "decision": { "type": "string", "enum": ["approved", "denied"] },
+        "approver_id": { "type": "string", "minLength": 1, "description": "Hex Ed25519 public key of a CLI approver token, or a surface-specific user id." },
+        "reason": { "type": "string", "description": "Free text from the approver. Empty when none." },
+        "ts": { "type": "string", "format": "date-time" },
+        "grant": { "oneOf": [ { "$ref": "#/$defs/grant" }, { "type": "null" } ], "description": "Grant issued with an approval, or null." },
+        "approver_sig": { "oneOf": [ { "$ref": "#/$defs/ed25519_sig_hex" }, { "type": "string", "const": "" } ] }
+      },
+      "required": ["approval_id", "call_id", "args_hash", "decision", "approver_id", "reason", "ts", "grant", "approver_sig"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,7 @@
+bin/
+dist/
+*.db
+*.jsonl
+!testdata/**/*.jsonl
+.DS_Store
+.claude/worktrees/

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/decision-output.schema.json",
+  "title": "agentgw decision output",
+  "description": "The result of evaluating one decision input. Version 1 (rev 4, evaluation-error).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "common.schema.json#/$defs/version"
+    },
+    "outcome": {
+      "$ref": "common.schema.json#/$defs/outcome"
+    },
+    "rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Id of the rule that produced the outcome (see contracts/policy-yaml.md for precedence). Reserved ids: 'default-deny' (no rule matched), 'unknown-agent' (agent not in the policy's agents list), 'evaluation-error' (Decide returned an error and the pipeline denied)."
+    },
+    "policy_version": {
+      "$ref": "common.schema.json#/$defs/sha256_hex",
+      "description": "SHA-256 of the compiled Cedar source. Goes into every ledger entry."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human-readable, shown to the agent in _meta.agentgw on deny. Empty when none."
+    },
+    "grant_id": {
+      "type": "string",
+      "description": "Non-empty only when a require_approval rule matched but an active grant turned the outcome into allow."
+    },
+    "approval": {
+      "oneOf": [
+        {
+          "$ref": "common.schema.json#/$defs/approval_spec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present (non-null) exactly when outcome is require_approval."
+    }
+  },
+  "required": [
+    "version",
+    "outcome",
+    "rule_id",
+    "policy_version",
+    "reason",
+    "grant_id",
+    "approval"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "require_approval"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "approval": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "approval": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

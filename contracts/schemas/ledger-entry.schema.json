@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/ledger-entry.schema.json",
+  "title": "agentgw ledger entry",
+  "description": "One line of the JSONL ledger (docs/adr/0004): one tool call, whatever its outcome. Lines are written as RFC 8785 (JCS) canonical JSON, UTF-8, no trailing whitespace, newline-terminated. Hashing rules: line_hash = SHA-256 of the line bytes without the newline; prev_hash = line_hash of the previous line of any type (entry or checkpoint), or 64 zeros for the first line; args_hash = SHA-256 of JCS(raw args object); result_hash = SHA-256 of JCS(raw CallToolResult with the protocol envelope removed), empty string when nothing was forwarded. Protocol envelope (docs/adr/0008): the top-level `resultType` member and every `_meta` member whose key starts with `io.modelcontextprotocol/`; when that empties `_meta`, `_meta` itself is removed. Nothing else is removed (`_meta.cost` and other vendor keys stay). The proxy forwards results to the client untouched; only the ledger strips; sig = Ed25519 over JCS(entry with the 'sig' member removed). Stored args and result.content are the redacted copies; hashes always cover the raw payloads. Version 1 (rev 5, gap-004: optional action.input_responses, input_responses_hash, request_state).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "common.schema.json#/$defs/version"
+    },
+    "type": {
+      "type": "string",
+      "const": "entry",
+      "description": "Line discriminator; checkpoint lines carry 'checkpoint'."
+    },
+    "id": {
+      "$ref": "common.schema.json#/$defs/ulid",
+      "description": "Entry id, assigned by Ledger.Append. Monotonic within one ledger file."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC 3339 with nanoseconds, when the entry was appended."
+    },
+    "prev_hash": {
+      "$ref": "common.schema.json#/$defs/sha256_hex"
+    },
+    "call_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Gateway call id, assigned by the proxy before any stage runs. Ties this entry to approvals and to the _meta.agentgw payload the client saw."
+    },
+    "principal": {
+      "$ref": "common.schema.json#/$defs/principal"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "$ref": "common.schema.json#/$defs/server_name"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "args": {
+          "type": "object",
+          "description": "Redacted copy of the arguments."
+        },
+        "args_hash": {
+          "$ref": "common.schema.json#/$defs/sha256_hex"
+        },
+        "input_responses": {
+          "type": "object",
+          "description": "Redacted copy of tools/call params.inputResponses on a multi-round-trip retry. Absent (not null) when the call had none; then input_responses_hash and request_state are absent too."
+        },
+        "input_responses_hash": {
+          "$ref": "common.schema.json#/$defs/sha256_hex",
+          "description": "SHA-256 of JCS(raw inputResponses). args_hash stays over arguments only."
+        },
+        "request_state": {
+          "type": "string",
+          "description": "params.requestState verbatim (opaque server state the client echoed)."
+        }
+      },
+      "required": [
+        "server",
+        "tool",
+        "args",
+        "args_hash"
+      ],
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "description": "The policy decision for this call, plus the human decision when one was requested.",
+      "properties": {
+        "outcome": {
+          "$ref": "common.schema.json#/$defs/outcome"
+        },
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_version": {
+          "$ref": "common.schema.json#/$defs/sha256_hex"
+        },
+        "grant_id": {
+          "type": "string",
+          "description": "Grant that satisfied a require_approval rule, or empty."
+        },
+        "approval": {
+          "oneOf": [
+            {
+              "$ref": "common.schema.json#/$defs/approval_decision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null unless outcome was require_approval and a human decided. Timeout leaves it null."
+        }
+      },
+      "required": [
+        "outcome",
+        "rule_id",
+        "policy_version",
+        "grant_id",
+        "approval"
+      ],
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "denied",
+        "budget_exceeded",
+        "approval_denied",
+        "approval_timeout",
+        "error"
+      ],
+      "description": "What happened to the call. ok: forwarded and upstream answered (including a tool-level isError result). error: forwarding failed (transport or JSON-RPC error); reservation released."
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "oneOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Redacted copy of the upstream CallToolResult with the protocol envelope removed, or null when nothing was forwarded."
+        },
+        "result_hash": {
+          "oneOf": [
+            {
+              "$ref": "common.schema.json#/$defs/sha256_hex"
+            },
+            {
+              "type": "string",
+              "const": ""
+            }
+          ],
+          "description": "Empty exactly when content is null."
+        },
+        "error": {
+          "type": "string",
+          "description": "Non-ok outcomes: for refusals, exactly CallError.Error() (reason formats fixed in pkg/contracts/errors.go); for outcome error, the Forward error text. Empty when ok."
+        }
+      },
+      "required": [
+        "content",
+        "result_hash",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "estimated": {
+          "$ref": "common.schema.json#/$defs/money",
+          "description": "Pricer estimate; what was reserved."
+        },
+        "actual": {
+          "$ref": "common.schema.json#/$defs/money",
+          "description": "What was settled. Zero when the call was not forwarded or the reservation was released."
+        }
+      },
+      "required": [
+        "estimated",
+        "actual"
+      ],
+      "additionalProperties": false
+    },
+    "signer": {
+      "$ref": "common.schema.json#/$defs/ed25519_pubkey_hex",
+      "description": "The gateway's ledger public key."
+    },
+    "sig": {
+      "$ref": "common.schema.json#/$defs/ed25519_sig_hex"
+    }
+  },
+  "required": [
+    "version",
+    "type",
+    "id",
+    "ts",
+    "prev_hash",
+    "call_id",
+    "principal",
+    "action",
+    "decision",
+    "outcome",
+    "result",
+    "cost",
+    "signer",
+    "sig"
+  ],
+  "additionalProperties": false
+}

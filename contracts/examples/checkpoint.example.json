@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "type": "checkpoint",
+  "id": "01J9ZK6B9C0D1E2F3G4H5J6K7M",
+  "ts": "2026-10-11T14:05:00Z",
+  "prev_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+  "range": { "first_id": "01J9ZK5A8B9C0D1E2F3G4H5J6K", "last_id": "01J9ZK6A0B1C2D3E4F5G6H7J8K", "count": 100 },
+  "root": "2222222222222222222222222222222222222222222222222222222222222222",
+  "signer": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "sig": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+}

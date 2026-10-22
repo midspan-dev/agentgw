@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/config.schema.json",
+  "title": "agentgw gateway config",
+  "description": "The gateway's local config file (YAML or JSON; YAML is parsed as JSON). One gateway process serves one agent identity. Relative paths resolve against the config file's directory. Version 1 (rev 7, gap-006 pricing rule).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "common.schema.json#/$defs/version"
+    },
+    "agent": {
+      "type": "object",
+      "description": "Identity of the agent this gateway fronts. `agentgw run --agent X` overrides id.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "owner"
+      ],
+      "additionalProperties": false
+    },
+    "currency": {
+      "$ref": "common.schema.json#/$defs/currency",
+      "description": "Currency of every price in this file. _meta.cost in another currency is rejected."
+    },
+    "listen": {
+      "type": "string",
+      "description": "Address for `agentgw serve` (Streamable HTTP), e.g. \":8080\". Empty for stdio-only use."
+    },
+    "upstreams": {
+      "type": "array",
+      "minItems": 1,
+      "description": "MCP servers behind the gateway. Exactly one of command or url per upstream. `agentgw run -- cmd` adds a stdio upstream named by --server (default 'default') without touching this list.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "common.schema.json#/$defs/server_name"
+          },
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "argv of a stdio MCP server."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Streamable HTTP MCP endpoint."
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "Path prefix the gateway serves this upstream on in HTTP mode. Required with url."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "command"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "url"
+                  ]
+                },
+                {
+                  "required": [
+                    "path"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "url",
+              "path"
+            ],
+            "not": {
+              "required": [
+                "command"
+              ]
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "policy_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Policy file (contracts/policy-yaml.md). A .cedar extension loads raw Cedar instead."
+    },
+    "prices": {
+      "type": "array",
+      "description": "Price table. Lookup: first item whose server and tool globs match, in file order; no match means zero. Estimate = per_call + value(arg_field) * arg_multiplier. value(): find the unique top-level key equal to arg_field, or failing that the unique key that matches it under the forwarding rule's collision relation (EqualFold after NFC; objects with colliding keys never reach the Pricer). Missing key: 0. JSON number: its value. JSON string: its value iff the whole string matches ^-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?$ (no surrounding whitespace, no leading +, no hex, no inf/nan, no separators) and parses to a finite double. Anything else that is present (other strings, booleans, null, arrays, objects, negative or non-finite values) is unpriceable: Estimate returns an error and the call is denied with evaluation-error. Amounts are decimal numbers in `currency` units; converted to micros with round-half-away-from-zero.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Glob; `*` matches any run of characters."
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Glob."
+          },
+          "per_call": {
+            "type": "number",
+            "minimum": 0
+          },
+          "arg_field": {
+            "type": "string",
+            "description": "Top-level argument field whose numeric value is multiplied. Empty disables."
+          },
+          "arg_multiplier": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "server",
+          "tool",
+          "per_call",
+          "arg_field",
+          "arg_multiplier"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "description": "Applied to stored args and results, recursively through objects and arrays. Built-in defaults always apply (see contracts/conventions.md); these lists add to them.",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Object keys (case-insensitive, any depth) whose value is replaced by the string \"[REDACTED]\"."
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Go RE2 regexps; every match inside a string value is replaced by \"[REDACTED]\"."
+        }
+      },
+      "required": [
+        "fields",
+        "patterns"
+      ],
+      "additionalProperties": false
+    },
+    "approvals": {
+      "type": "object",
+      "description": "Approval surfaces. Phase 1 has only the CLI; Slack arrives with a version bump.",
+      "properties": {
+        "cli": {
+          "type": "object",
+          "properties": {
+            "token_path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Ed25519 approver token file. `agentgw approvals init` creates it."
+            }
+          },
+          "required": [
+            "token_path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "cli"
+      ],
+      "additionalProperties": false
+    },
+    "ledger": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "JSONL ledger file. Created if missing."
+        },
+        "checkpoint_every": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Append a checkpoint after this many entries since the last one."
+        }
+      },
+      "required": [
+        "path",
+        "checkpoint_every"
+      ],
+      "additionalProperties": false
+    },
+    "key_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ed25519 ledger signing key. `agentgw keygen` creates it."
+    },
+    "state_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SQLite file shared by budgets and approvals (docs/adr/0003)."
+    }
+  },
+  "required": [
+    "version",
+    "agent",
+    "currency",
+    "listen",
+    "upstreams",
+    "policy_path",
+    "prices",
+    "redaction",
+    "approvals",
+    "ledger",
+    "key_path",
+    "state_path"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,1 @@
+{"name": "search", "description": "Fake search; costs 0.005 USD.", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}}, "cost": {"amount": 0.005, "currency": "USD"}}

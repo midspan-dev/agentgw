@@ -1,0 +1,23 @@
+{
+  "version": "1",
+  "agent": { "id": "billing-bot", "owner": "alice@example.com" },
+  "currency": "USD",
+  "listen": ":8080",
+  "upstreams": [
+    { "name": "stripe", "command": ["npx", "-y", "@stripe/mcp"] },
+    { "name": "search", "url": "https://search.example.com/mcp", "path": "/search" }
+  ],
+  "policy_path": "policy.yaml",
+  "prices": [
+    { "server": "*", "tool": "search", "per_call": 0.005, "arg_field": "", "arg_multiplier": 0 },
+    { "server": "stripe", "tool": "refund", "per_call": 0, "arg_field": "amount", "arg_multiplier": 1 }
+  ],
+  "redaction": {
+    "fields": ["api_key", "authorization"],
+    "patterns": ["ghp_[A-Za-z0-9]{36}"]
+  },
+  "approvals": { "cli": { "token_path": "approver.key" } },
+  "ledger": { "path": "ledger.jsonl", "checkpoint_every": 100 },
+  "key_path": "ledger.key",
+  "state_path": "agentgw.db"
+}

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/policy.schema.json",
+  "title": "agentgw policy file",
+  "description": "The YAML policy grammar (parsed as JSON). Semantics, precedence and the Cedar each construct compiles to are in contracts/policy-yaml.md. Globs use `*` only. Amounts are decimal numbers in `currency` units, converted to micros with round-half-away-from-zero. Version 1 (rev 4, agents minItems).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "common.schema.json#/$defs/version"
+    },
+    "currency": {
+      "$ref": "common.schema.json#/$defs/currency"
+    },
+    "agents": {
+      "type": "array",
+      "description": "Known agents. When non-empty, a principal whose agent_id is not listed is denied with rule_id 'unknown-agent'. Empty means any agent id is accepted.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact agent id, not a glob."
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "owner"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "description": "Spending limits, enforced by Budget.Reserve. Every item whose agent and tool globs match a call applies; the call must fit all of them.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Agent id glob."
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "description": "'<server>.<tool>' glob. '*' for all tools."
+          },
+          "limits": {
+            "type": "object",
+            "description": "Windows to cap. An absent window is unlimited; 0 blocks all spend.",
+            "propertyNames": {
+              "$ref": "common.schema.json#/$defs/window"
+            },
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minProperties": 1
+          }
+        },
+        "required": [
+          "agent",
+          "tool",
+          "limits"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "description": "Evaluated as a set: deny beats require_approval beats allow; ties go to file order; no match is deny.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Unique in the file. Becomes the Cedar policy id and the ledger rule_id. 'default-deny', 'unknown-agent' and 'evaluation-error' are reserved."
+          },
+          "effect": {
+            "$ref": "common.schema.json#/$defs/outcome"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Agent id globs, any may match. Omitted means every agent. An empty list is a compile error (fail closed; YAML cannot distinguish [] from omitted reliably).",
+            "minItems": 1
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "description": "'<server>.<tool>' globs, any may match."
+          },
+          "when": {
+            "type": "object",
+            "description": "All listed conditions must hold for the rule to match.",
+            "properties": {
+              "estimated_cost_above": {
+                "type": "number",
+                "minimum": 0,
+                "description": "estimated_cost strictly greater than this."
+              },
+              "budget_remaining_below": {
+                "type": "object",
+                "description": "budget_remaining[window] strictly less than this. A window absent from the input never satisfies this.",
+                "propertyNames": {
+                  "$ref": "common.schema.json#/$defs/window"
+                },
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "minProperties": 1
+              }
+            },
+            "additionalProperties": false,
+            "minProperties": 1
+          },
+          "approvers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Only with effect require_approval. Omitted means any approver."
+          },
+          "timeout": {
+            "type": "string",
+            "pattern": "^[0-9]+(ms|s|m|h)$",
+            "description": "Only with effect require_approval. Go duration; default 10m."
+          }
+        },
+        "required": [
+          "id",
+          "effect",
+          "tools"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "rules"
+  ],
+  "additionalProperties": false
+}

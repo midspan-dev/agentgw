@@ -1,0 +1,1 @@
+{"name": "delete_everything", "description": "Fake destructive tool.", "inputSchema": {"type": "object"}}

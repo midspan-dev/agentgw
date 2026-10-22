@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/decision-input.schema.json",
+  "title": "agentgw decision input",
+  "description": "Everything a policy engine may look at to decide one tool call. Language-agnostic: the Cedar backend and any future backend consume exactly this. Version 1.",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "common.schema.json#/$defs/version" },
+    "principal": { "$ref": "common.schema.json#/$defs/principal" },
+    "action": {
+      "type": "object",
+      "properties": {
+        "server": { "$ref": "common.schema.json#/$defs/server_name" },
+        "tool": { "type": "string", "minLength": 1 },
+        "args": { "type": "object", "description": "The raw MCP tools/call arguments object. {} when the call had none." }
+      },
+      "required": ["server", "tool", "args"],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "time": { "type": "string", "format": "date-time", "description": "UTC RFC 3339. Policies compare grants and windows against this, never against wall clock." },
+        "estimated_cost": { "$ref": "common.schema.json#/$defs/money", "description": "From the Pricer. Zero when the tool is unpriced." },
+        "budget_remaining": {
+          "type": "object",
+          "description": "Remaining budget per window for this principal and tool, from Budget.Remaining. A window with no configured limit is absent.",
+          "propertyNames": { "$ref": "common.schema.json#/$defs/window" },
+          "additionalProperties": { "$ref": "common.schema.json#/$defs/money" }
+        },
+        "grants": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/grant" },
+          "description": "Active grants for this principal, from Approver.Grants. May be empty, never absent."
+        }
+      },
+      "required": ["time", "estimated_cost", "budget_remaining", "grants"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "principal", "action", "context"],
+  "additionalProperties": false
+}

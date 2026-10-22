@@ -1,0 +1,11 @@
+[
+  {"name": "nested object", "in": {"a": {"Password": "hunter2", "keep": 1}}, "want": {"a": {"Password": "[REDACTED]", "keep": 1}}},
+  {"name": "array of objects", "in": {"xs": [{"api_key": "k", "n": 1}, {"TOKEN": "t"}]}, "want": {"xs": [{"api_key": "[REDACTED]", "n": 1}, {"TOKEN": "[REDACTED]"}]}},
+  {"name": "bearer in sentence", "in": {"msg": "call with Bearer abc.def-123 now"}, "want": {"msg": "call with [REDACTED] now"}},
+  {"name": "sk key", "in": {"k": "use sk-abcdEFGH12345678 here"}, "want": {"k": "use [REDACTED] here"}},
+  {"name": "AKIA key", "in": {"k": "AKIAABCDEFGHIJKLMNOP"}, "want": {"k": "[REDACTED]"}},
+  {"name": "32 hex", "in": {"h": "0123456789abcdef0123456789ABCDEF"}, "want": {"h": "[REDACTED]"}},
+  {"name": "config field", "in": {"ssn": "123-45-6789", "ok": "x"}, "want": {"ssn": "[REDACTED]", "ok": "x"}, "fields": ["SSN"]},
+  {"name": "config pattern", "in": {"note": "card 4111-1111-1111-1111 end"}, "want": {"note": "card [REDACTED] end"}, "patterns": ["\\d{4}-\\d{4}-\\d{4}-\\d{4}"]},
+  {"name": "nothing to redact", "in": {"a": [1, 2.50, "plain"]}, "want": {"a": [1, 2.50, "plain"]}}
+]

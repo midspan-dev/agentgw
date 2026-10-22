@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+project_name: agentgw
+
+builds:
+  - id: agentgw
+    main: ./cmd/agentgw
+    binary: agentgw
+    env: [CGO_ENABLED=0] # static; modernc sqlite needs no cgo
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{.Version}}"]
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  prerelease: auto # v1.0.0-rc.1 -> GitHub pre-release
+  github:
+    owner: midspan-dev
+    name: agentgw
+
+# Needs the HOMEBREW_TAP_TOKEN secret (write access to midspan-dev/homebrew-tap).
+brews:
+  - name: agentgw
+    skip_upload: auto # pre-release tags do not touch the tap
+    repository:
+      owner: midspan-dev
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/midspan-dev/agentgw
+    description: Policy-enforcing MCP proxy with a signed, replayable ledger of every agent action
+    license: Apache-2.0
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/agentgw version")

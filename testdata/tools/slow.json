@@ -1,0 +1,1 @@
+{"name": "slow", "description": "Answers after 10 seconds.", "inputSchema": {"type": "object"}, "latency_ms": 10000}

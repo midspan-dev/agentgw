@@ -1,0 +1,49 @@
+{
+  "version": "1",
+  "type": "entry",
+  "id": "01J9ZK5A8B9C0D1E2F3G4H5J6K",
+  "ts": "2026-10-11T14:03:09.123456789Z",
+  "prev_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "call_id": "c9a1f0e2d3b4a5968778695a4b3c2d1e",
+  "principal": {
+    "agent_id": "billing-bot",
+    "owner": "alice@example.com",
+    "run_id": "01J9ZK3M2Q4R5S6T7V8W9X0Y1Z",
+    "session_id": "mcp-sess-7f3a"
+  },
+  "action": {
+    "server": "stripe",
+    "tool": "refund",
+    "args": { "charge": "ch_123", "amount": 120.5, "api_key": "[REDACTED]" },
+    "args_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "decision": {
+    "outcome": "require_approval",
+    "rule_id": "refunds-need-approval",
+    "policy_version": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "grant_id": "",
+    "approval": {
+      "approval_id": "apr-01J9ZK5",
+      "call_id": "c9a1f0e2d3b4a5968778695a4b3c2d1e",
+      "args_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "decision": "approved",
+      "approver_id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "reason": "",
+      "ts": "2026-10-11T14:03:08Z",
+      "grant": null,
+      "approver_sig": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  },
+  "outcome": "ok",
+  "result": {
+    "content": { "content": [ { "type": "text", "text": "refund re_456 created" } ], "isError": false, "_meta": { "cost": { "amount": 120.5, "currency": "USD" } } },
+    "result_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+    "error": ""
+  },
+  "cost": {
+    "estimated": { "micros": 120500000, "currency": "USD" },
+    "actual": { "micros": 120500000, "currency": "USD" }
+  },
+  "signer": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "sig": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+}

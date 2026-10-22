@@ -1,0 +1,1 @@
+{"name": "refund", "description": "Fake refund; costs args.amount USD.", "inputSchema": {"type": "object", "properties": {"charge": {"type": "string"}, "amount": {"type": "number"}}, "required": ["amount"]}, "cost": {"amount_arg": "amount", "currency": "USD"}}

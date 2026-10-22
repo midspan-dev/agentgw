@@ -1,0 +1,40 @@
+# Toolchain entrypoint. No local Go required.
+#
+#   ./scripts/go build ./...      == docker compose run --rm go build ./...
+#   ./scripts/go test ./...
+#   ./scripts/go run ./cmd/agentgw version
+#
+# Caches are named volumes shared across worktrees (explicit `name:` so the
+# compose project name, which differs per worktree directory, does not fork them).
+# Demo and full-stack compose files live in deploy/ and are owned by the
+# packaging node; this file is owned by the orchestrator.
+
+services:
+  go:
+    image: golang:1.27-bookworm
+    working_dir: /src
+    entrypoint: ["go"]
+    environment:
+      CGO_ENABLED: "0"
+      GOFLAGS: "-buildvcs=false"
+      GOCACHE: /go/cache
+    volumes:
+      - .:/src
+      - gomod:/go/pkg/mod
+      - gocache:/go/cache
+    # Tests that spawn the gateway as a subprocess need a writable /src; the
+    # bind mount gives them that. Nothing here needs network except module
+    # downloads, which the gomod volume caches after the first run.
+
+  # Interactive shell with the toolchain, for debugging a worker's package.
+  shell:
+    extends: go
+    entrypoint: ["bash"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  gomod:
+    name: agentgw-gomod
+  gocache:
+    name: agentgw-gocache

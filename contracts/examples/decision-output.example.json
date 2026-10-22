@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "outcome": "require_approval",
+  "rule_id": "refunds-need-approval",
+  "policy_version": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "reason": "refunds over 100.00 USD need a human",
+  "grant_id": "",
+  "approval": { "approvers": ["1111111111111111111111111111111111111111111111111111111111111111"], "timeout_seconds": 600 }
+}

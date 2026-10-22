@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/checkpoint.schema.json",
+  "title": "agentgw ledger checkpoint",
+  "description": "A checkpoint line in the JSONL ledger, appended every ledger.checkpoint_every entries or on demand. Same canonical form, prev_hash and sig rules as ledger-entry. root is the Merkle root over the entry lines (type=entry only) appended since the previous checkpoint: leaves are line_hash of each entry in file order; each level pairs adjacent nodes left-to-right as SHA-256(left || right) of the raw 32-byte hashes; an unpaired last node is carried up unchanged; a single-entry range has root = its line_hash. The checkpoint participates in the chain: the next line's prev_hash is this line's line_hash. Version 1.",
+  "type": "object",
+  "properties": {
+    "version": { "$ref": "common.schema.json#/$defs/version" },
+    "type": { "type": "string", "const": "checkpoint" },
+    "id": { "$ref": "common.schema.json#/$defs/ulid" },
+    "ts": { "type": "string", "format": "date-time" },
+    "prev_hash": { "$ref": "common.schema.json#/$defs/sha256_hex" },
+    "range": {
+      "type": "object",
+      "description": "The entries covered: from first_id to last_id inclusive, count of them. Never empty; Checkpoint with no new entries is a no-op.",
+      "properties": {
+        "first_id": { "$ref": "common.schema.json#/$defs/ulid" },
+        "last_id": { "$ref": "common.schema.json#/$defs/ulid" },
+        "count": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["first_id", "last_id", "count"],
+      "additionalProperties": false
+    },
+    "root": { "$ref": "common.schema.json#/$defs/sha256_hex" },
+    "signer": { "$ref": "common.schema.json#/$defs/ed25519_pubkey_hex" },
+    "sig": { "$ref": "common.schema.json#/$defs/ed25519_sig_hex" }
+  },
+  "required": ["version", "type", "id", "ts", "prev_hash", "range", "root", "signer", "sig"],
+  "additionalProperties": false
+}
