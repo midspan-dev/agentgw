@@ -27,6 +27,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Release the pushed tag. Left to itself goreleaser picks the highest
+          # tag on the commit, and git sorts v0.1.0-rc.1 above v0.1.0.
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
       # Image tags: X.Y.Z (no "v", same as `brew` prints); :latest only for non-pre-releases.
       - id: img
         run: |
