@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -32,6 +33,7 @@ import (
 	"github.com/midspan-dev/agentgw/internal/ledger"
 	"github.com/midspan-dev/agentgw/internal/pipeline"
 	"github.com/midspan-dev/agentgw/internal/policy"
+	"github.com/midspan-dev/agentgw/internal/policy/reload"
 	"github.com/midspan-dev/agentgw/internal/proxy"
 	"github.com/midspan-dev/agentgw/pkg/contracts"
 	"github.com/oklog/ulid/v2"
@@ -62,9 +64,28 @@ func main() {
 
 var errUsage = errors.New("bad usage")
 
+// commands are subcommands registered by other files in this package from
+// init(); names must not collide with the built-in cases in run().
+var commands = map[string]func(ctx context.Context, args []string, out io.Writer) error{}
+
+// extraUsage holds one usage line per registered command, appended sorted.
+var extraUsage []string
+
+func usageText() string {
+	extra := append([]string(nil), extraUsage...)
+	sort.Strings(extra)
+	s := usage
+	for _, l := range extra {
+		s += l + "\n"
+	}
+	return s
+}
+
+func printUsage() { fmt.Fprint(os.Stderr, usageText()) }
+
 func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		fmt.Fprint(os.Stderr, usage)
+		printUsage()
 		return errUsage
 	}
 	cmd, args := args[0], args[1:]
@@ -94,7 +115,10 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		fmt.Fprintln(out, "agentgw", version)
 		return nil
 	}
-	fmt.Fprint(os.Stderr, usage)
+	if f, ok := commands[cmd]; ok {
+		return f(ctx, args, out)
+	}
+	printUsage()
 	return errUsage
 }
 
@@ -163,7 +187,7 @@ func gateway(ctx context.Context, mode string, args []string) error {
 	defer appr.Close()
 
 	ic := &tracked{ic: pipeline.New(pipeline.Deps{
-		Principal: who, Pricer: budget.NewPricer(cfg.Prices, cfg.Currency), Decider: pol,
+		Principal: who, Pricer: budget.NewPricer(cfg.Prices, cfg.Currency), Decider: reload.New(cfg.PolicyPath, pol, os.Stderr, time.Now, reload.WithCurrency(cfg.Currency)),
 		Budget: bud, Ledger: led, Approver: appr, Currency: cfg.Currency,
 	})}
 	// The proxy returns without waiting for in-flight calls; finish them (they

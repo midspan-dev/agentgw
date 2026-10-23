@@ -1,6 +1,15 @@
 bin/
 dist/
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.key
+.env
+.env.*
+!.env.example
+/agentgw.yaml
+/agentgw.yml
 *.jsonl
 !testdata/**/*.jsonl
 .DS_Store
