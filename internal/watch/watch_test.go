@@ -339,3 +339,28 @@ func TestHugeInputLineKeepsApprover(t *testing.T) {
 	io.WriteString(pw, "a\n")
 	wait(id + " by you")
 }
+
+// col is the rune column of sub in s; "…" is one column but three bytes.
+func col(s, sub string) int { return utf8.RuneCountInString(s[:strings.Index(s, sub)]) }
+
+// Every outcome fits its column, so rule and version line up under the
+// header; long tool names are cut by rune, long rule ids are kept whole.
+func TestRowColumns(t *testing.T) {
+	head := row("time", "decision", "tool", "outcome", "rule", "version")
+	at := strings.Index(head, "rule")
+	for _, outcome := range []string{"ok", "approval_timeout", "budget_exceeded"} {
+		if got := strings.Index(row("14:02:11", "hold", "s.t", outcome, "r", "v 1"), " r "); got+1 != at {
+			t.Errorf("%s: rule at %d, header at %d", outcome, got+1, at)
+		}
+	}
+	long := row("14:02:11", "allow", "github.create_pull_request_review_comment", "ok", "r", "v 1")
+	if !strings.Contains(long, "github.create_pull_request_r…") || col(long, " ok ") != col(head, " outcome ") {
+		t.Errorf("long tool not cut to its column: %q", long)
+	}
+	if got := fit("日本語のツール名がとても長い", 5); got != "日本語の…" {
+		t.Errorf("cut by bytes, not runes: %q", got)
+	}
+	if r := row("t", "deny", "s.t", "denied", "a-very-long-rule-id-that-explains-it", "v 1"); !strings.Contains(r, "a-very-long-rule-id-that-explains-it v 1") {
+		t.Errorf("rule id cut: %q", r)
+	}
+}

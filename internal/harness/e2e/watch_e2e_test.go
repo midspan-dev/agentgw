@@ -109,7 +109,8 @@ func TestE2EWatchApproves(t *testing.T) {
 	// JSON encoding already neutralises bytes in args, so also send a raw
 	// path: the tool name is recorded as given and printed on the call line.
 	g.client.Call("\x1b]0;pwned\x07\x1b[31m", map[string]any{})
-	s := waitFor(t, buf, "hostile tool name line", func(s string) bool { return strings.Contains(s, `\u001B]0;pwned\u0007\u001B[31m`) })
+	// The tool column cuts long names, so look for the escaped prefix.
+	s := waitFor(t, buf, "hostile tool name line", func(s string) bool { return strings.Contains(s, `harness.\u001B]0;pwned\u0007`) })
 	if strings.ContainsRune(s, 0x1b) || strings.ContainsRune(s, 7) {
 		t.Fatalf("control byte in stream:\n%q", s)
 	}

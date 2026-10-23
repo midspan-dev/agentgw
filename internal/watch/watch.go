@@ -109,6 +109,7 @@ func Run(ctx context.Context, o Options, in io.Reader, out io.Writer) error {
 			w.store.Close()
 		}
 	}()
+	w.emit("", "\n"+row("time", "decision", "tool", "outcome", "rule", "version"))
 	emitFrom := 0
 	if o.Since >= 0 && len(initial) > o.Since {
 		emitFrom = len(initial) - o.Since
@@ -199,6 +200,22 @@ func (w *watcher) emit(colour, text string) {
 
 func (w *watcher) status(name, text, colour string) {
 	w.emit(colour, fmt.Sprintf("%-8s %s", name, text))
+}
+
+// row lays out a call line, or the header, in fixed-width columns. Values
+// must already be escaped. Long tool names are cut (the card shows them in
+// full); rule ids are never cut, since they explain the decision, so a long
+// one only pushes the version right.
+// shortcut: widths count runes, so wide (CJK) characters still shift a line; measure display width if that shows up.
+func row(time, decision, tool, outcome, rule, version string) string {
+	return fmt.Sprintf("%-8s  %s %s %s %s %s", time, fit(decision, 8), fit(tool, 29), fit(outcome, 16), fmt.Sprintf("%-22s", rule), version)
+}
+
+func fit(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n-1]) + "…"
+	}
+	return fmt.Sprintf("%-*s", n, s)
 }
 
 // event prints a timestamped line.
@@ -360,8 +377,8 @@ func (w *watcher) renderEntry(e *contracts.Entry, show bool) {
 		}
 		extra = append(extra, esc(r))
 	}
-	w.event(esc(dec), fmt.Sprintf("%-29s %-9s %-19s v %s  %s", esc(e.Action.Server+"."+e.Action.Tool),
-		esc(string(e.Outcome)), esc(e.Decision.RuleID), esc(short(ver)), strings.Join(extra, " ")), "")
+	w.emit("", strings.TrimRight(row(w.now().Format("15:04:05"), esc(dec), esc(e.Action.Server+"."+e.Action.Tool),
+		esc(string(e.Outcome)), esc(e.Decision.RuleID), "v "+esc(short(ver))+"  "+strings.Join(extra, " ")), " "))
 }
 
 func money(m contracts.Money) string {
@@ -498,7 +515,7 @@ func (w *watcher) drop(c *card) {
 func (w *watcher) showCard(c *card) {
 	r := c.p.Request
 	tool := esc(r.Server + "." + r.Tool)
-	w.event("hold", fmt.Sprintf("%-29s %-9s %s", tool, "pending", esc(r.RuleID)), "")
+	w.emit("", strings.TrimRight(row(w.now().Format("15:04:05"), "hold", tool, "pending", esc(r.RuleID), ""), " "))
 	cost := "0 " + esc(r.EstimatedCost.Currency) + " (unpriced)"
 	if r.EstimatedCost.Micros != 0 {
 		cost = money(r.EstimatedCost)
