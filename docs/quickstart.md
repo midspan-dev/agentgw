@@ -33,7 +33,7 @@ created  /Users/you/.agentgw/agentgw.yaml
 created  /Users/you/.agentgw/policy.yaml    (… tools found on "everything"; … need approval)
 created  /Users/you/.agentgw/ledger.key     public key 3b1a…82fe
          ledger public key (signer in every entry):
-         3b1aa69c7b0c4dd6421badfbdb66ae7b835cb79317d600542feabfc3b97382fe
+         <your public key: 64 hex characters>
 created  /Users/you/.agentgw/approver.key
 
 registered with Claude Code: claude mcp add --scope user everything -- /opt/homebrew/bin/agentgw run --config /Users/you/.agentgw/agentgw.yaml --server everything
