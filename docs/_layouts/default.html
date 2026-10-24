@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if page.title %}{{ page.title }} · {% endif %}midspan docs</title>
+<link rel="icon" type="image/svg+xml" href="{{ '/assets/mark.svg' | relative_url }}">
+<link rel="stylesheet" href="{{ '/assets/style.css' | relative_url }}">
+</head>
+<body>
+<header>
+  <a class="brand" href="https://midspan.dev"><img src="{{ '/assets/mark.svg' | relative_url }}" alt="" width="30" height="30"><span>midspan<span class="brand-dot">.</span></span></a>
+  <span class="eyebrow">Docs</span>
+</header>
+<main>
+{{ content }}
+</main>
+<footer>
+  <a href="https://midspan.dev">Live demo</a>
+  <a href="https://github.com/midspan-dev/agentgw">GitHub</a>
+</footer>
+</body>
+</html>

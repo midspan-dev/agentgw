@@ -1,0 +1,14 @@
+title: midspan docs
+url: https://docs.midspan.dev
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-titles-from-headings
+titles_from_headings:
+  enabled: true
+optional_front_matter:
+  remove_originals: true
