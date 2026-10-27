@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agentgw.dev/schemas/v1/policy.schema.json",
   "title": "agentgw policy file",
-  "description": "The YAML policy grammar (parsed as JSON). Semantics, precedence and the Cedar each construct compiles to are in contracts/policy-yaml.md. Globs use `*` only. Amounts are decimal numbers in `currency` units, converted to micros with round-half-away-from-zero. Version 1 (rev 4, agents minItems).",
+  "description": "The YAML policy grammar (parsed as JSON). Semantics, precedence and the Cedar each construct compiles to are in contracts/policy-yaml.md. Globs use `*` only. Amounts are decimal numbers in `currency` units, converted to micros with round-half-away-from-zero. Version 1 (rev 10, gap-008: approvers meaning; rev 4, agents minItems).",
   "type": "object",
   "properties": {
     "version": {
@@ -134,7 +134,7 @@
               "type": "string",
               "minLength": 1
             },
-            "description": "Only with effect require_approval. Omitted means any approver."
+            "description": "Only with effect require_approval. Each entry is the identity reported by the surface doing the approving (for GitHub comments the GitHub login, compared case-insensitively); no prefix syntax. An entry that is not a valid identity on a surface never matches there (an email never matches a GitHub login), so that surface fails closed and the call is decided from the terminal or expires. Omitted or empty means any approver who passes the surface's own checks. The terminal does not enforce the list (its identity is the approver-key holder). Rev 10, gap-008, docs/adr/0011 decision 8."
           },
           "timeout": {
             "type": "string",

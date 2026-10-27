@@ -16,7 +16,10 @@
     "fields": ["api_key", "authorization"],
     "patterns": ["ghp_[A-Za-z0-9]{36}"]
   },
-  "approvals": { "cli": { "token_path": "approver.key" } },
+  "approvals": {
+    "cli": { "token_path": "approver.key" },
+    "github": { "repo": "example/triage", "issue": 0, "min_permission": "write", "poll_interval": "15s", "token_env": "GITHUB_TOKEN" }
+  },
   "ledger": { "path": "ledger.jsonl", "checkpoint_every": 100 },
   "key_path": "ledger.key",
   "state_path": "agentgw.db"

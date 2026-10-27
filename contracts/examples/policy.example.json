@@ -10,7 +10,7 @@
   ],
   "rules": [
     { "id": "no-destructive", "effect": "deny", "tools": ["*.delete_*"] },
-    { "id": "refunds-need-approval", "effect": "require_approval", "tools": ["stripe.refund"], "when": { "estimated_cost_above": 100 }, "approvers": ["alice@example.com"], "timeout": "10m" },
+    { "id": "refunds-need-approval", "effect": "require_approval", "tools": ["stripe.refund"], "when": { "estimated_cost_above": 100 }, "approvers": ["alice"], "timeout": "10m" },
     { "id": "low-budget-approval", "effect": "require_approval", "tools": ["*"], "when": { "budget_remaining_below": { "daily": 10 } } },
     { "id": "allow-billing", "effect": "allow", "agents": ["billing-bot"], "tools": ["stripe.*", "*.search"] }
   ]

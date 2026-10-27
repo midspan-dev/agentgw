@@ -49,14 +49,43 @@ type RedactionConfig struct {
 	Patterns []string `json:"patterns" yaml:"patterns"` // RE2 regexps applied to string values
 }
 
-// ApprovalsConfig lists approval surfaces. Phase 1: CLI only.
+// ApprovalsConfig lists approval surfaces. CLI is required; GitHub is optional
+// (rev 9, docs/adr/0011): when present, `agentgw run` and `agentgw serve`
+// start the comment poller. Configs without it are unchanged.
 type ApprovalsConfig struct {
-	CLI CLIApprovals `json:"cli" yaml:"cli"`
+	CLI    CLIApprovals     `json:"cli" yaml:"cli"`
+	GitHub *GitHubApprovals `json:"github,omitempty" yaml:"github,omitempty"`
 }
 
 // CLIApprovals configures the local approver token.
 type CLIApprovals struct {
 	TokenPath string `json:"token_path" yaml:"token_path"`
+}
+
+// GitHubApprovals configures approvals by GitHub issue or pull-request comment
+// (docs/adr/0011). The token is read from the environment variable named by
+// TokenEnv, never from this file. Decisions are signed with the CLI approver
+// token (CLIApprovals.TokenPath), which the gateway holds; the commenter's
+// login is recorded in ApprovalDecision.Via.
+type GitHubApprovals struct {
+	// Repo is "owner/name".
+	Repo string `json:"repo" yaml:"repo"`
+	// Issue is the issue or pull-request number the gateway comments on and
+	// polls. 0 means take it from the GitHub Actions event file named by
+	// $GITHUB_EVENT_PATH (.issue.number, else .pull_request.number); if
+	// neither is present the gateway refuses to start.
+	Issue int `json:"issue" yaml:"issue"`
+	// MinPermission is the least repository role a commenter needs for a
+	// reply to count: one of "triage", "write", "maintain", "admin" (GitHub
+	// role_name order). Empty means "write".
+	MinPermission string `json:"min_permission,omitempty" yaml:"min_permission,omitempty"`
+	// PollInterval is a Go duration string (e.g. "15s"), the pause between
+	// comment polls while at least one approval is pending; the gateway does
+	// not poll while nothing is pending. Empty means "15s"; the minimum is "5s".
+	PollInterval string `json:"poll_interval,omitempty" yaml:"poll_interval,omitempty"`
+	// TokenEnv names the environment variable holding the GitHub token.
+	// Empty means "GITHUB_TOKEN".
+	TokenEnv string `json:"token_env,omitempty" yaml:"token_env,omitempty"`
 }
 
 // LedgerConfig locates the ledger and sets checkpoint cadence.

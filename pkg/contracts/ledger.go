@@ -40,6 +40,18 @@ type ApprovalDecision struct {
 	Ts          time.Time `json:"ts"`
 	Grant       *Grant    `json:"grant"` // nil unless the approver issued one
 	ApproverSig string    `json:"approver_sig"`
+	// Via names the surface and human behind a decision that was signed by a
+	// key the gateway holds (rev 9, docs/adr/0011). Nil for CLI decisions.
+	// Not covered by ApproverSig; attested only by the ledger entry's own
+	// signature, so it proves what the gateway saw, not who holds the key.
+	Via *DecisionVia `json:"via,omitempty"`
+}
+
+// DecisionVia is the surface and human behind an ApprovalDecision.
+type DecisionVia struct {
+	Surface string `json:"surface"` // "github"
+	User    string `json:"user"`    // the surface's user id; GitHub login for "github"
+	URL     string `json:"url"`     // where the decision can be checked independently (the comment's html_url)
 }
 
 // Decision values for ApprovalDecision.Decision.

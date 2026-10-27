@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agentgw.dev/schemas/v1/config.schema.json",
   "title": "agentgw gateway config",
-  "description": "The gateway's local config file (YAML or JSON; YAML is parsed as JSON). One gateway process serves one agent identity. Relative paths resolve against the config file's directory. Version 1 (rev 7, gap-006 pricing rule).",
+  "description": "The gateway's local config file (YAML or JSON; YAML is parsed as JSON). One gateway process serves one agent identity. Relative paths resolve against the config file's directory. Version 1 (rev 9, gap-007: optional approvals.github).",
   "type": "object",
   "properties": {
     "version": {
@@ -175,7 +175,7 @@
     },
     "approvals": {
       "type": "object",
-      "description": "Approval surfaces. Phase 1 has only the CLI; Slack arrives with a version bump.",
+      "description": "Approval surfaces. cli is required; github is optional (rev 9, docs/adr/0011) and, when present, makes `agentgw run`/`serve` post held calls as comments and poll for replies. Slack arrives with a later bump.",
       "properties": {
         "cli": {
           "type": "object",
@@ -183,11 +183,52 @@
             "token_path": {
               "type": "string",
               "minLength": 1,
-              "description": "Ed25519 approver token file. `agentgw approvals init` creates it."
+              "description": "Ed25519 approver token file. `agentgw approvals init` creates it. Also signs GitHub-comment decisions (the gateway holds this key and signs on the commenter's behalf)."
             }
           },
           "required": [
             "token_path"
+          ],
+          "additionalProperties": false
+        },
+        "github": {
+          "type": "object",
+          "description": "Approvals by GitHub issue or pull-request comment. The token comes from the environment variable named by token_env, never from this file.",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+              "description": "owner/name of the repository whose issue or PR carries the conversation."
+            },
+            "issue": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Issue or pull-request number to comment on and poll. 0: take it from the GitHub Actions event file at $GITHUB_EVENT_PATH (.issue.number, else .pull_request.number); refuse to start if neither is present."
+            },
+            "min_permission": {
+              "type": "string",
+              "enum": [
+                "triage",
+                "write",
+                "maintain",
+                "admin"
+              ],
+              "description": "Least repository role (GitHub role_name) a commenter needs for /approve or /deny to count. Default write."
+            },
+            "poll_interval": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$",
+              "description": "Go duration between comment polls while an approval is pending. Default 15s, minimum 5s. No polling while nothing is pending."
+            },
+            "token_env": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Environment variable holding the GitHub token. Default GITHUB_TOKEN."
+            }
+          },
+          "required": [
+            "repo",
+            "issue"
           ],
           "additionalProperties": false
         }

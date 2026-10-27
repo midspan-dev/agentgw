@@ -31,7 +31,8 @@
       "reason": "",
       "ts": "2026-10-11T14:03:08Z",
       "grant": null,
-      "approver_sig": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "approver_sig": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "via": { "surface": "github", "user": "alice", "url": "https://github.com/example/triage/issues/7#issuecomment-123456" }
     }
   },
   "outcome": "ok",

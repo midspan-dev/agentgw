@@ -78,7 +78,7 @@
         "approvers": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
-          "description": "Approver ids allowed to decide. Empty means any approver known to the configured surfaces."
+          "description": "Identities allowed to decide, as reported by the surface doing the approving (GitHub comments: the GitHub login, case-insensitive; no prefix syntax). An entry that is not a valid identity on a surface never matches there, so that surface fails closed. Empty means any approver who passes the surface's own checks. The terminal does not enforce the list. Rev 10, gap-008, docs/adr/0011 decision 8."
         },
         "timeout_seconds": { "type": "integer", "minimum": 1, "description": "Wait this long before ErrApprovalTimeout." }
       },
@@ -113,7 +113,18 @@
         "reason": { "type": "string", "description": "Free text from the approver. Empty when none." },
         "ts": { "type": "string", "format": "date-time" },
         "grant": { "oneOf": [ { "$ref": "#/$defs/grant" }, { "type": "null" } ], "description": "Grant issued with an approval, or null." },
-        "approver_sig": { "oneOf": [ { "$ref": "#/$defs/ed25519_sig_hex" }, { "type": "string", "const": "" } ] }
+        "approver_sig": { "oneOf": [ { "$ref": "#/$defs/ed25519_sig_hex" }, { "type": "string", "const": "" } ] },
+        "via": {
+          "type": "object",
+          "description": "Optional (rev 9, docs/adr/0011): the surface and human behind a decision signed by a key the gateway holds (GitHub comments). Absent for CLI decisions. Not covered by approver_sig; attested only by the entry's sig, so it records what the gateway saw, not who holds the approver key.",
+          "properties": {
+            "surface": { "type": "string", "enum": ["github"] },
+            "user": { "type": "string", "minLength": 1, "description": "The surface's user id: the GitHub login." },
+            "url": { "type": "string", "format": "uri", "description": "Where the decision can be checked independently: the comment's html_url." }
+          },
+          "required": ["surface", "user", "url"],
+          "additionalProperties": false
+        }
       },
       "required": ["approval_id", "call_id", "args_hash", "decision", "approver_id", "reason", "ts", "grant", "approver_sig"],
       "additionalProperties": false

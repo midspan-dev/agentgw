@@ -185,6 +185,11 @@ func gateway(ctx context.Context, mode string, args []string) error {
 		return err
 	}
 	defer appr.Close()
+	stopGH, err := startGitHubApprovals(ctx, cfg, appr)
+	if err != nil {
+		return err
+	}
+	defer stopGH()
 
 	ic := &tracked{ic: pipeline.New(pipeline.Deps{
 		Principal: who, Pricer: budget.NewPricer(cfg.Prices, cfg.Currency), Decider: reload.New(cfg.PolicyPath, pol, os.Stderr, time.Now, reload.WithCurrency(cfg.Currency)),

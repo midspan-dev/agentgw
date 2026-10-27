@@ -29,7 +29,7 @@ rules:                  # required; may be empty (then everything is denied)
       estimated_cost_above: 100            # estimated_cost > 100 units
       budget_remaining_below:          # budget_remaining[window] < amount
         daily: 10
-    approvers: ["alice@example.com"]  # require_approval only; omitted = any approver
+    approvers: ["alice"]              # require_approval only; surface identities (GitHub logins); omitted = any approver
     timeout: 10m                      # require_approval only; Go duration; default 10m
 ```
 
@@ -71,6 +71,20 @@ Given a `DecisionInput`, the Decider:
    - else `require_approval`, `rule_id` = the first such rule in file order,
      `approval` = `{approvers, timeout_seconds}` from that rule (defaults:
      `[]`, `600`).
+   **Approvers (rev 10, gap-008, docs/adr/0011 decision 8).** An entry is
+   the identity reported by the surface doing the approving; for GitHub
+   comments that is the GitHub login, compared case-insensitively. There is
+   no prefix syntax. An entry that is not a valid identity on a surface
+   never matches there: an email address never matches a GitHub login
+   (logins cannot contain `@`), so GitHub fails closed for it and the call
+   can only be decided from the terminal, or it expires. An empty list
+   means any approver who passes the surface's own checks (for GitHub, the
+   repository role). The terminal (`agentgw approvals`, `agentgw watch`)
+   does not enforce the list: its identity is the approver-key holder,
+   which cannot be matched to a name (known limitation). If one gateway
+   ever takes approvals from several surfaces, the same string could name
+   different people; a people-to-identities mapping in config is the
+   planned fix, not prefixes.
 4. **Allow.** Else if any `allow` rule matches: `allow`, `rule_id` = the
    first matching allow rule in file order.
 5. **Default deny.** Else `deny`, `rule_id: default-deny`.
@@ -241,7 +255,7 @@ rules:
     effect: require_approval
     tools: ["stripe.refund"]
     when: { estimated_cost_above: 100 }
-    approvers: ["alice@example.com"]
+    approvers: ["alice"]     # a GitHub login; an email entry here is only satisfiable from the terminal
     timeout: 10m
   - id: allow-stripe
     effect: allow
@@ -273,7 +287,7 @@ when { resource.full_name like "stripe.*" };
 
 | call, estimated_cost                 | outcome          | rule_id               | approval                                      |
 |--------------------------------------|------------------|-----------------------|-----------------------------------------------|
-| `stripe.refund`, 120.50              | require_approval | refunds-need-approval | `{approvers: [alice@example.com], timeout_seconds: 600}` |
+| `stripe.refund`, 120.50              | require_approval | refunds-need-approval | `{approvers: [alice], timeout_seconds: 600}` |
 | `stripe.refund`, 100.00              | allow            | allow-stripe          | null                                          |
 | `stripe.refund`, 120.50, with grant for run r1 on stripe.refund until later | allow | refunds-need-approval | null, `grant_id` set |
 | `stripe.refund`, 120.50, agent `ops-bot` | require_approval | refunds-need-approval | as row 1 (approval rule has no agents filter) |

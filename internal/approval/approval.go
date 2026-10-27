@@ -214,15 +214,26 @@ func (s *Store) List(ctx context.Context) ([]contracts.PendingApproval, error) {
 
 // Approve approves id, bound to argsHash. scope "" issues no grant.
 func (s *Store) Approve(ctx context.Context, id, argsHash string, scope contracts.GrantScope, until time.Time) error {
-	return s.decide(ctx, id, argsHash, contracts.DecisionApproved, "", scope, until)
+	return s.decide(ctx, id, argsHash, contracts.DecisionApproved, "", scope, until, nil)
+}
+
+// ApproveVia is Approve without a grant, recording the surface and human the
+// decision came from (not covered by the signature).
+func (s *Store) ApproveVia(ctx context.Context, id, argsHash string, via contracts.DecisionVia) error {
+	return s.decide(ctx, id, argsHash, contracts.DecisionApproved, "", "", time.Time{}, &via)
 }
 
 // Deny denies id, bound to argsHash.
 func (s *Store) Deny(ctx context.Context, id, argsHash, reason string) error {
-	return s.decide(ctx, id, argsHash, contracts.DecisionDenied, reason, "", time.Time{})
+	return s.decide(ctx, id, argsHash, contracts.DecisionDenied, reason, "", time.Time{}, nil)
 }
 
-func (s *Store) decide(ctx context.Context, id, argsHash, decision, reason string, scope contracts.GrantScope, until time.Time) error {
+// DenyVia is Deny recording the surface and human the decision came from.
+func (s *Store) DenyVia(ctx context.Context, id, argsHash, reason string, via contracts.DecisionVia) error {
+	return s.decide(ctx, id, argsHash, contracts.DecisionDenied, reason, "", time.Time{}, &via)
+}
+
+func (s *Store) decide(ctx context.Context, id, argsHash, decision, reason string, scope contracts.GrantScope, until time.Time, via *contracts.DecisionVia) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -244,7 +255,7 @@ func (s *Store) decide(ctx context.Context, id, argsHash, decision, reason strin
 	now := s.now().UTC().Truncate(time.Second)
 	d := contracts.ApprovalDecision{
 		ApprovalID: id, CallID: x.req.CallID, ArgsHash: x.req.ArgsHash, Decision: decision,
-		ApproverID: hex.EncodeToString(s.priv.Public().(ed25519.PublicKey)), Reason: reason, Ts: now,
+		ApproverID: hex.EncodeToString(s.priv.Public().(ed25519.PublicKey)), Reason: reason, Ts: now, Via: via,
 	}
 	if scope != "" {
 		g := contracts.Grant{ID: ulid.Make().String(), ApprovalID: id, Scope: scope, AgentID: x.req.Principal.AgentID,
