@@ -1,7 +1,9 @@
 package ghapproval
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -375,5 +377,103 @@ func TestResolveIssueFromEvent(t *testing.T) {
 		if _, err := Resolve(bad, ""); err == nil {
 			t.Errorf("%+v: want error", bad)
 		}
+	}
+}
+
+func TestOutcomeInSamePoll(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"/approve %s", "approved by @alice"},
+		{"/deny %s too risky", "denied by @alice: `too risky`"},
+	} {
+		e := newEnv(t)
+		e.f.perms["alice"] = "write"
+		_, ref := e.request("refund", 60)
+		p := &poller{o: e.opts, held: map[string]*held{}, seen: map[int64]bool{}, tries: map[int64]int{}, replied: map[string]bool{}, api: e.f.srv.URL, minRank: roleRank["write"]}
+		p.o.Logf = func(string, ...any) {}
+		p.o.Now = time.Now
+		p.o.HTTP = http.DefaultClient
+		p.poll(t.Context()) // announces
+		e.f.add("alice", "User", fmt.Sprintf(c.body, ref))
+		p.poll(t.Context()) // reads the decision and must report it at once
+		if n := e.f.botsWith(c.want); n != 1 {
+			t.Fatalf("%q posted %d times after one poll", c.want, n)
+		}
+		p.poll(t.Context())
+		if n := e.f.botsWith(c.want); n != 1 {
+			t.Fatalf("%q posted %d times", c.want, n)
+		}
+	}
+}
+
+// A refused comment GET, or an undecidable command, must not let the outcome
+// out ahead of the commands written while the call was held.
+func TestReplyBeforeOutcomeAfterFailedRead(t *testing.T) {
+	for _, c := range []struct {
+		name, cmd, reply, outcome string
+		expire, failGet, failPerm bool
+	}{
+		{"approved-get", "/deny %s", "already approved", "approved by the local approver", false, true, false},
+		{"expired-get", "/approve %s", "already expired", "expired", true, true, false},
+		{"approved-perm", "/deny %s", "already approved", "approved by the local approver", false, false, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newEnv(t)
+			e.f.perms["alice"] = "write"
+			timeout := 60
+			if c.expire {
+				timeout = 1
+			}
+			id, ref := e.request("refund", timeout)
+			p := &poller{o: e.opts, held: map[string]*held{}, seen: map[int64]bool{}, tries: map[int64]int{}, replied: map[string]bool{}, api: e.f.srv.URL, minRank: roleRank["write"]}
+			p.o.Logf = func(string, ...any) {}
+			p.o.Now = time.Now
+			p.o.HTTP = http.DefaultClient
+			p.poll(t.Context()) // announces
+			if c.expire {
+				time.Sleep(1200 * time.Millisecond) // the store keeps its own clock
+			} else if err := e.store.Approve(t.Context(), id, "hash-refund", "", time.Time{}); err != nil {
+				t.Fatal(err)
+			}
+			e.f.add("alice", "User", fmt.Sprintf(c.cmd, ref))
+			e.f.mu.Lock()
+			if c.failGet {
+				e.f.failGets = 1
+			}
+			if c.failPerm {
+				e.f.failPerms = 1
+			}
+			e.f.mu.Unlock()
+			p.poll(t.Context())
+			if n := e.f.botsWith(c.outcome); n != 0 {
+				t.Fatalf("outcome posted before the command was judged: %q", e.f.bots())
+			}
+			p.poll(t.Context())
+			// The outcome text also appears inside the reply, hence 2.
+			if e.f.botsWith(c.reply) != 1 || e.f.botsWith(c.outcome) != 2 || e.f.botsWith("no pending") != 0 {
+				t.Fatalf("%q", e.f.bots())
+			}
+			p.poll(t.Context())
+			if e.f.botsWith(c.reply) != 1 || e.f.botsWith(c.outcome) != 2 {
+				t.Fatalf("repeated: %q", e.f.bots())
+			}
+		})
+	}
+}
+
+func TestFarewellPostsOwedOutcome(t *testing.T) {
+	e := newEnv(t)
+	e.opts.Config.PollInterval = "1m"
+	id, ref := e.request("refund", 60)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { Run(ctx, e.opts); close(done) }()
+	e.announced(ref)
+	if err := e.store.Approve(ctx, id, "hash-refund", "", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	<-done
+	if n := e.f.botsWith("approved by the local approver"); n != 1 {
+		t.Fatalf("outcome posted %d times, want 1", n)
 	}
 }

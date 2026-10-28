@@ -1,0 +1,34 @@
+# agentgw config for your laptop. Identical to agentgw.yaml except that it has
+# no `approvals.github` block: approvals happen in `agentgw watch`.
+# Paths are relative to this file.
+version: "1"
+agent:
+  id: issue-triage
+  owner: you@example.com # CHANGE: your email or login; recorded in the ledger
+currency: USD
+listen: ""
+upstreams:
+  - name: github
+    # The official GitHub MCP server, pinned by digest (= tag v2.0.3) and to the issues
+    # toolset only. The token reaches it through the environment (the shell
+    # maps $GITHUB_TOKEN to the name the server reads); it is never in this file.
+    command:
+      - sh
+      - -c
+      - >-
+        GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_TOKEN" exec docker run -i --rm
+        -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_TOOLSETS=issues
+        ghcr.io/github/github-mcp-server@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132 stdio
+policy_path: policy.yaml
+prices: []
+redaction:
+  fields: [authorization, token]
+  patterns: []
+approvals:
+  cli:
+    token_path: approver.key
+ledger:
+  path: ledger.jsonl
+  checkpoint_every: 100
+key_path: ledger.key
+state_path: agentgw.db

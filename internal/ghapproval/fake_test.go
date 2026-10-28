@@ -34,6 +34,8 @@ type fakeGH struct {
 	hold        bool // 500 on comment GET and POST
 	ignoreSince bool
 	failPage2   int
+	failGets    int // next N comment GETs: 500; POSTs still work
+	failPerms   int // next N permission lookups: 500
 	rateLimit   bool // next request: 403 Retry-After 2
 	permLimit   bool // next permission lookup: 403 Retry-After 2
 	forbid      bool // next request: plain 403
@@ -132,6 +134,11 @@ func (f *fakeGH) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(403)
 		return
 	}
+	if f.failPerms > 0 && strings.HasSuffix(r.URL.Path, "/permission") {
+		f.failPerms--
+		w.WriteHeader(500)
+		return
+	}
 	if f.permLimit && strings.HasSuffix(r.URL.Path, "/permission") {
 		f.permLimit = false
 		w.Header().Set("Retry-After", "2")
@@ -156,6 +163,9 @@ func (f *fakeGH) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(c)
+	case r.URL.Path == commentsPath && f.failGets > 0:
+		f.failGets--
+		w.WriteHeader(500)
 	case r.URL.Path == commentsPath:
 		since, _ := time.Parse(time.RFC3339, r.URL.Query().Get("since"))
 		var match []ghComment

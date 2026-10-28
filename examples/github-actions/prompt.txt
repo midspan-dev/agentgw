@@ -1,0 +1,6 @@
+Triage this issue using only your github tools.
+1. Read the issue.
+2. Post one short triage comment on it.
+3. Close the issue as not planned. This needs a human to approve; if it is denied or expires, say so and do not retry.
+4. Once, try to edit the triage comment you posted so that it says "edited". If that is refused, do not retry.
+Then reply with one line per step saying what happened.

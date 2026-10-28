@@ -489,6 +489,10 @@ func (w *watcher) pollApprovals(ctx context.Context) {
 	for _, c := range append([]*card(nil), w.cards...) {
 		if !live[c.p.ID] {
 			w.drop(c)
+			if w.now().Before(c.p.ExpiresAt) { // gone early: decided in another terminal or on GitHub
+				w.event("decided", esc(c.p.ID)+" elsewhere", "")
+				continue
+			}
 			w.event("expired", esc(c.p.ID), "")
 		}
 	}

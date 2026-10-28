@@ -1,6 +1,7 @@
 # Quickstart
 
-Five minutes: put agentgw in front of one MCP server, watch every tool call as
+One MCP policy, on your laptop first and then in GitHub Actions. Five minutes
+here: put agentgw in front of one MCP server, watch every tool call as
 it happens, hold one for your approval, and verify the signed ledger. We use
 the reference "everything" server because its `echo` tool is harmless.
 
@@ -44,6 +45,8 @@ registered with Claude Code: claude mcp add --scope user everything -- /opt/home
   or paid action (delete, refund, send, …) wait for your approval, and
   everything else is allowed. Keep the public key; it verifies the ledger
   anywhere.
+- The two key files are secrets. `approver.key` approves calls, so an agent
+  that can read it can approve itself, so keep it out of the agent's reach.
 - `init` registers the gateway with Claude Code for you, available from any
   directory. If `claude` is not on your PATH, it prints the `claude mcp add`
   command to run yourself.
@@ -127,3 +130,6 @@ Rules can also deny calls outright (`effect: deny`, which wins over every
 other rule) and cap spend with `prices` and `budgets`. `agentgw approvals
 list|approve|deny` decides held calls without `watch`. See
 `contracts/policy-yaml.md` for the full grammar.
+
+The same `policy.yaml` runs in GitHub Actions, with approvals by comment while
+the job is still running: see [Run in GitHub Actions](github-actions).

@@ -37,7 +37,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/midspan-dev/agentgw
-    description: Policy-enforcing MCP proxy with a signed, replayable ledger of every agent action
+    description: Policy-enforcing MCP proxy with a signed, independently verifiable history
     license: Apache-2.0
     test: |
       assert_match version.to_s, shell_output("#{bin}/agentgw version")

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "sh",
+      "args": ["-c", "exec agentgw run --config examples/github-actions/agentgw.yaml 2>>\"$RUNNER_TEMP/agentgw.log\""],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "GITHUB_EVENT_PATH": "${GITHUB_EVENT_PATH}",
+        "GITHUB_API_URL": "${GITHUB_API_URL}",
+        "RUNNER_TEMP": "${RUNNER_TEMP}"
+      }
+    }
+  }
+}

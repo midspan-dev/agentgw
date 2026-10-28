@@ -63,7 +63,7 @@ func newW(t *testing.T) (*watcher, *sink, *contracts.Config) {
 		t.Fatal(err)
 	}
 	out := &sink{}
-	w := &watcher{o: Options{Config: cfg}, out: out, now: func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.Local) }}
+	w := &watcher{o: Options{Config: cfg}, out: out, now: time.Now}
 	return w, out, cfg
 }
 
@@ -284,6 +284,33 @@ func TestExpiredAndReadOnly(t *testing.T) {
 	w.pollApprovals(ctx)
 	if strings.Count(out.String(), "expired  "+id) != 1 {
 		t.Fatalf("expired: %q", out)
+	}
+}
+
+func TestDecidedElsewhere(t *testing.T) {
+	for _, verb := range []string{"approve", "deny"} {
+		w, out, cfg := newW(t)
+		ctx := context.Background()
+		w.openStore()
+		other, _ := approval.Open(cfg.StatePath, cfg.Approvals.CLI.TokenPath)
+		r := req(verb)
+		id, _ := other.Request(ctx, r)
+		w.pollApprovals(ctx)
+		var err error
+		if verb == "approve" {
+			err = other.Approve(ctx, id, r.ArgsHash, "", time.Time{})
+		} else {
+			err = other.Deny(ctx, id, r.ArgsHash, "no")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.pollApprovals(ctx)
+		if strings.Count(out.String(), "decided  "+id+" elsewhere") != 1 || strings.Contains(out.String(), "expired") {
+			t.Fatalf("%s: %q", verb, out)
+		}
+		other.Close()
+		w.store.Close()
 	}
 }
 

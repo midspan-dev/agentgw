@@ -1,0 +1,101 @@
+# Copy this file to .github/workflows/triage.yml in your repository, together
+# with the whole examples/github-actions/ directory (the paths below assume it).
+name: triage
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read # checkout only
+  issues: write # the agent's comment, and the gateway's approval comments
+
+jobs:
+  triage:
+    # Each run spends your ANTHROPIC_API_KEY and runner minutes, and the issue
+    # text is the agent's input: only the repository's own people can start one.
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The agentgw release to install, without the leading v. It must include
+      # 0.3.0-rc.2 or later (the first release that posts the outcome comment;
+      # GitHub approvals arrived in 0.3.0-rc.1); change it to upgrade.
+      AGENTGW_VERSION: "0.3.0-rc.2"
+      CLAUDE_CODE_VERSION: "2.1.310"
+      CFG: examples/github-actions
+    steps:
+      - name: Check AGENTGW_VERSION
+        run: |
+          printf '%s' "$AGENTGW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' ||
+            { echo "AGENTGW_VERSION must be a release version such as 0.3.0-rc.2" >&2; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install agentgw and the Claude Code CLI
+        run: |
+          v="$AGENTGW_VERSION"
+          base="https://github.com/midspan-dev/agentgw/releases/download/v$v"
+          f="agentgw_${v}_linux_amd64.tar.gz"
+          curl -fsSL -O "$base/$f" -O "$base/checksums.txt"
+          sha256sum --check --ignore-missing checksums.txt
+          tar -xzf "$f" agentgw
+          sudo install agentgw /usr/local/bin/agentgw
+          agentgw version
+          npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+
+      - name: Write keys
+        env:
+          LEDGER_KEY: ${{ secrets.AGENTGW_LEDGER_KEY }}
+          APPROVER_KEY: ${{ secrets.AGENTGW_APPROVER_KEY }}
+        run: |
+          test -n "$LEDGER_KEY" && test -n "$APPROVER_KEY" ||
+            { echo "secrets AGENTGW_LEDGER_KEY and AGENTGW_APPROVER_KEY must both be set" >&2; exit 1; }
+          umask 077
+          printf '%s\n' "$LEDGER_KEY" > "$CFG/ledger.key"
+          printf '%s\n' "$APPROVER_KEY" > "$CFG/approver.key"
+
+      - name: Triage the issue
+        timeout-minutes: 25 # above the 10m approval timeout plus the agent's own time
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          PROMPT_OVERRIDE: ${{ vars.AGENTGW_PROMPT }} # optional repository variable, used for the COMPAT.md probes
+          EXTRA_FLAGS: ${{ vars.AGENTGW_CLAUDE_FLAGS }} # optional, e.g. --output-format stream-json --verbose (probe (a))
+        run: |
+          prompt="Issue #$NUMBER in $REPO. ${PROMPT_OVERRIDE:-$(cat "$CFG/prompt.txt")}"
+          # No shell, no file tools: --tools "" removes every built-in, and the
+          # disallow list repeats the dangerous ones. Only the wrapped github
+          # server is reachable (COMPAT.md).
+          # shellcheck disable=SC2086
+          claude -p "$prompt" \
+            --tools "" \
+            --disallowedTools Bash Edit Write Read Glob Grep NotebookEdit WebFetch WebSearch Task Agent ListMcpResourcesTool ReadMcpResourceTool \
+            --allowedTools "mcp__github" \
+            --mcp-config "$CFG/mcp.json" --strict-mcp-config \
+            --permission-mode dontAsk --disable-slash-commands --no-session-persistence \
+            $EXTRA_FLAGS
+
+      - name: Gateway log
+        if: always()
+        run: cat "$RUNNER_TEMP/agentgw.log" || true
+
+      - name: Verify the ledger
+        if: always()
+        env:
+          PUBKEY: ${{ vars.AGENTGW_LEDGER_PUBKEY }}
+        run: agentgw verify "$CFG/ledger.jsonl" "$PUBKEY"
+
+      - name: Upload the ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentgw-ledger
+          path: examples/github-actions/ledger.jsonl
+
+      - name: Delete keys
+        if: always()
+        run: rm -f "$CFG/ledger.key" "$CFG/approver.key" "$CFG/agentgw.db"*

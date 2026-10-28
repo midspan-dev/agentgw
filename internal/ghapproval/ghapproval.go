@@ -185,11 +185,22 @@ func (p *poller) poll(ctx context.Context) {
 			p.announce(ctx, pa)
 		}
 	}
-	if len(p.held) > 0 {
-		p.readComments(ctx)
+	// Outcomes follow only a complete read: a command posted while the call
+	// was held must be answered "already ...", which needs the call held.
+	if len(p.held) > 0 && !p.readComments(ctx) {
+		return
 	}
+	// Re-list: a comment read above may have decided a call in this poll.
+	if l, err := p.o.Store.List(ctx); err == nil {
+		list = l
+	}
+	p.outcomes(ctx, list)
+}
+
+// outcomes posts the outcome for every held call missing from pending.
+func (p *poller) outcomes(ctx context.Context, pending []contracts.PendingApproval) {
 	live := map[string]bool{}
-	for _, pa := range list {
+	for _, pa := range pending {
 		live[pa.ID] = true
 	}
 	for id := range p.held {
@@ -218,8 +229,9 @@ func (p *poller) announce(ctx context.Context, pa contracts.PendingApproval) {
 }
 
 // readComments drains every page since the cursor; the cursor moves, and
-// comments are evaluated, only when all pages arrived.
-func (p *poller) readComments(ctx context.Context) {
+// comments are evaluated, only when all pages arrived. It reports whether
+// they did.
+func (p *poller) readComments(ctx context.Context) bool {
 	u := p.api + p.issuePath() + "?per_page=100"
 	if !p.cursor.IsZero() {
 		u += "&since=" + url.QueryEscape(p.cursor.Add(-time.Second).UTC().Format(time.RFC3339))
@@ -229,26 +241,29 @@ func (p *poller) readComments(ctx context.Context) {
 		var page []ghComment
 		var hdr http.Header
 		if err := p.do(ctx, "GET", u, nil, &page, &hdr); err != nil {
-			return
+			return false
 		}
 		all = append(all, page...)
 		u = ""
 		if m := nextRe.FindStringSubmatch(hdr.Get("Link")); m != nil {
 			if !strings.HasPrefix(m[1], p.api+"/") { // never send the token elsewhere
 				p.o.Logf("github approvals: ignoring next link off the API base")
-				return
+				return false
 			}
 			u = m[1]
 		}
 	}
 	for _, c := range all {
 		if p.evaluate(ctx, c) {
-			return // retry from this comment next poll; the cursor stays before it
+			// A retried command must be answered while its call is held; only an
+			// unknown own login lets outcomes through (an outcome POST is how it is learned).
+			return p.self == "" // retry from this comment next poll; the cursor stays before it
 		}
 		if c.CreatedAt.After(p.cursor) {
 			p.cursor = c.CreatedAt
 		}
 	}
+	return true
 }
 
 // evaluate acts on one comment, once. It returns true when the comment could
@@ -403,7 +418,12 @@ func (p *poller) outcome(ctx context.Context, id string) {
 func (p *poller) farewell() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if list, err := p.o.Store.List(ctx); err == nil && len(list) > 0 {
+	list, err := p.o.Store.List(ctx)
+	if err != nil {
+		return
+	}
+	p.outcomes(ctx, list)
+	if len(list) > 0 {
 		p.comment(ctx, fmt.Sprintf("run ended, %d approvals still pending", len(list)), "")
 	}
 }

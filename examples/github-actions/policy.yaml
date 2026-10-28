@@ -1,0 +1,50 @@
+# One policy for both runs: your laptop and GitHub Actions. Same bytes, same
+# policy_version in both ledgers.
+#
+# Tools of the pinned upstream (ghcr.io/github/github-mcp-server:v2.0.3,
+# GITHUB_TOOLSETS=issues), from tools/list on 2026-10-25:
+#   read-only: issue_read, list_issues, search_issues, get_label,
+#              list_issue_types, list_issue_fields
+#   writes:    add_issue_comment, update_issue_comment, issue_write,
+#              sub_issue_write
+# issue_write is create, update, label, assign and close in one tool (the
+# method is an argument, and policy does not see arguments), so all of it
+# waits for approval. Rules match "<server>.<tool>"; the upstream is named
+# "github" in agentgw.yaml.
+version: "1"
+currency: USD
+rules:
+  # 1. Denied outright; deny wins over every other rule. The token could do
+  #    the first two (they are issue writes); the policy forbids them, so the
+  #    ledger shows `denied` and nothing is sent to GitHub. The rest are
+  #    repository writes: denied even though the issues toolset does not
+  #    expose them, because the policy is the boundary, not the toolset.
+  - id: deny-rewrite-and-repo-writes
+    effect: deny
+    tools:
+      - "*.update_issue_comment"
+      - "*.sub_issue_write"
+      - "*.create_or_update_file"
+      - "*.delete_file"
+      - "*.push_files"
+      - "*.merge_pull_request"
+      - "*.create_pull_request"
+      - "*.create_branch"
+  # 2. A human decides: closing, editing, labelling, assigning or creating.
+  #    Keep timeout below the longest wait the headless client tolerates for
+  #    one tool call (README.md, "Measure the limit").
+  - id: issue-write-needs-approval
+    effect: require_approval
+    tools: ["*.issue_write"]
+    timeout: 10m
+  # 3. Reads, and one automatic write: a comment.
+  - id: triage
+    effect: allow
+    tools:
+      - "*.issue_read"
+      - "*.list_issues"
+      - "*.search_issues"
+      - "*.get_label"
+      - "*.list_issue_types"
+      - "*.list_issue_fields"
+      - "*.add_issue_comment"
