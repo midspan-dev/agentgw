@@ -17,17 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # The agentgw release to install, without the leading v. It must include
-      # 0.3.0-rc.2 or later (the first release that posts the outcome comment;
-      # GitHub approvals arrived in 0.3.0-rc.1); change it to upgrade.
-      AGENTGW_VERSION: "0.3.0-rc.2"
+      # The agentgw release to install, without the leading v. It must be 0.3.0
+      # or later (GitHub approvals and the outcome comment); change it to upgrade.
+      AGENTGW_VERSION: "0.3.0"
       CLAUDE_CODE_VERSION: "2.1.310"
       CFG: examples/github-actions
     steps:
       - name: Check AGENTGW_VERSION
         run: |
           printf '%s' "$AGENTGW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' ||
-            { echo "AGENTGW_VERSION must be a release version such as 0.3.0-rc.2" >&2; exit 1; }
+            { echo "AGENTGW_VERSION must be a release version such as 0.3.0" >&2; exit 1; }
 
       - uses: actions/checkout@v4
         with:

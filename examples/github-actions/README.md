@@ -53,8 +53,8 @@ token it would post `/approve` as that person. The example uses the job's
 2. Edit `agentgw.yaml`: set `approvals.github.repo` to `your-login/your-repo`
    and `agent.owner` to your email or login.
 3. The workflow pins the agentgw release it installs (`AGENTGW_VERSION`,
-   0.3.0-rc.2, the first release that posts the outcome comment). Change it to
-   upgrade; it must stay 0.3.0-rc.2 or later.
+   0.3.0). Change it to upgrade; it must stay 0.3.0 or later, for GitHub
+   approvals and the outcome comment.
 4. Generate the two keys on your machine and read their contents:
 
    ```sh

@@ -30,8 +30,8 @@ cp examples/github-actions/.github/workflows/triage.yml .github/workflows/
 The workflow reads its files from `examples/github-actions/`, so keep that
 path. In `agentgw.yaml`, set `approvals.github.repo` to `your-login/your-repo`
 and `agent.owner` to your email or login (it is recorded in the ledger). The workflow pins
-the agentgw release it installs (`AGENTGW_VERSION`), which must be 0.3.0-rc.2
-or later, the first release that posts the outcome comment this page describes.
+the agentgw release it installs (`AGENTGW_VERSION`), which must be 0.3.0
+or later for the approvals and outcome comment this page describes.
 Then make the keys:
 
 ```sh

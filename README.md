@@ -9,9 +9,7 @@ history of every call that you can check offline.
 - Laptop: the [quickstart](docs/quickstart.md) takes about five minutes.
 - GitHub Actions: [run the same policy in a workflow](docs/github-actions.md)
   and approve held calls by comment while the job is still running. This path
-  needs agentgw v0.3.0-rc.2 or later from the
-  [GitHub releases page](https://github.com/midspan-dev/agentgw/releases);
-  brew installs 0.2.0 until 0.3.0 is final.
+  needs agentgw 0.3.0 or later.
 - Browser: try the demo at [midspan.dev](https://midspan.dev).
 
 ```sh
