@@ -6,8 +6,9 @@ holds is approved by a `/approve` comment on the issue while the job is still
 running, and the signed ledger of the run is a workflow artifact you can verify
 anywhere.
 
-This page proves one thing: the same `policy.yaml` you ran on your laptop makes
-the same decisions on a runner. The example is in the
+This page proves one thing: the same policy file makes the same decisions on
+your laptop and on a runner. The example has its own `policy.yaml`, written for
+the GitHub MCP server, in the format the quickstart uses. The example is in the
 [examples/github-actions](https://github.com/midspan-dev/agentgw/tree/main/examples/github-actions)
 directory of the repository.
 
@@ -16,9 +17,19 @@ Needs: a GitHub repository you own, an Anthropic API key, and agentgw (see the
 
 ## 1. Set up
 
-Copy the example directory into your repository as `examples/github-actions/`
-and its `.github/workflows/triage.yml` to `.github/workflows/triage.yml`. Set
-`approvals.github.repo` in `agentgw.yaml` to your repository. The workflow pins
+Copy the example into your repository (a throwaway public repository is
+fine). From your repository's root:
+
+```sh
+git clone --depth 1 https://github.com/midspan-dev/agentgw /tmp/agentgw
+mkdir -p examples .github/workflows
+cp -R /tmp/agentgw/examples/github-actions examples/
+cp examples/github-actions/.github/workflows/triage.yml .github/workflows/
+```
+
+The workflow reads its files from `examples/github-actions/`, so keep that
+path. In `agentgw.yaml`, set `approvals.github.repo` to `your-login/your-repo`
+and `agent.owner` to your email or login (it is recorded in the ledger). The workflow pins
 the agentgw release it installs (`AGENTGW_VERSION`), which must be 0.3.0-rc.2
 or later, the first release that posts the outcome comment this page describes.
 Then make the keys:
@@ -32,8 +43,20 @@ cat ledger.key approver.key
 
 Create the secrets `AGENTGW_LEDGER_KEY` and `AGENTGW_APPROVER_KEY` (the two
 files' contents) and `ANTHROPIC_API_KEY`, and the repository variable
-`AGENTGW_LEDGER_PUBKEY` (the printed public key). Enable Actions and open an
-issue. Only issues opened by the repository's owner, members and collaborators
+`AGENTGW_LEDGER_PUBKEY` (the printed public key). Delete the two key files or
+keep them somewhere safe; the example's `.gitignore` keeps them out of the
+repository.
+
+Commit and push to the default branch: GitHub runs an `issues` workflow only
+from the default branch, so an issue opened before the workflow lands there
+starts nothing. Enable Actions, then open an issue, for example:
+
+```
+Title: Search returns no results for quoted phrases
+Body:  Searching for "release notes" with the quotes returns nothing.
+```
+
+Any issue works; the agent's instructions are in `prompt.txt`. Only issues opened by the repository's owner, members and collaborators
 start a run (the workflow checks `author_association`): each run spends your
 Anthropic key and the issue text is the agent's input, so keep that gate on a
 public repository.
@@ -114,7 +137,7 @@ The agent has no shell and no file tools: the workflow starts Claude Code with
 every built-in tool removed and only the wrapped server's tools allowed. This
 matters because on a runner everything shares one machine. An agent with a
 shell could read the approver key and approve itself, edit `policy.yaml`, or
-rewrite the ledger with the ledger key. The example's `COMPAT.md` records the
+rewrite the ledger with the ledger key. The example's [`COMPAT.md`](https://github.com/midspan-dev/agentgw/blob/main/examples/github-actions/COMPAT.md) records the
 check that the agent really has only the intended tools.
 
 The approver signature shows that the process holding the approver key approved
@@ -133,6 +156,6 @@ key you saved:
 agentgw verify ledger.jsonl <pubkey-hex>
 ```
 
-Run the same issue on your laptop with the same `policy.yaml` (see `local.md` in
-the example) and compare the two ledgers: each equivalent call has the same
+Run the same issue on your laptop with the same `policy.yaml` (see
+[`local.md`](https://github.com/midspan-dev/agentgw/blob/main/examples/github-actions/local.md) in the example) and compare the two ledgers: each equivalent call has the same
 `policy_version`, `outcome` and `rule_id`.

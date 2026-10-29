@@ -205,6 +205,7 @@ func Run(ctx context.Context, o Options, in io.Reader, out io.Writer) error {
 		if o.NoDiscover {
 			derr = errors.New("discovery skipped (--no-discover)")
 		} else {
+			fmt.Fprintf(out, "listing tools on %q (up to 2 min; a first npx run downloads the server)\n", o.Name)
 			tools, derr = Discover(ctx, o.Command)
 		}
 		pol := StarterPolicy(o.Name, tools, derr == nil, o.Now())

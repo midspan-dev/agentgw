@@ -5,6 +5,9 @@ here: put agentgw in front of one MCP server, watch every tool call as
 it happens, hold one for your approval, and verify the signed ledger. We use
 the reference "everything" server because its `echo` tool is harmless.
 
+This walkthrough is a functional demo, not a security boundary: see
+[Before you rely on it](#before-you-rely-on-it).
+
 Needs: Claude Code, Node.js (for `npx`), Homebrew.
 
 ## 1. Install
@@ -14,7 +17,8 @@ brew install midspan-dev/tap/agentgw
 agentgw version
 ```
 
-No Homebrew: download a binary from the GitHub releases page. (The Docker
+No Homebrew: download a binary from the
+[GitHub releases page](https://github.com/midspan-dev/agentgw/releases). (The Docker
 image, `ghcr.io/midspan-dev/agentgw`, is for running the gateway as a service,
 not for this quickstart.)
 
@@ -30,6 +34,7 @@ Answer the prompts (Enter takes the default in brackets; name the server
 `~/.agentgw`:
 
 ```
+listing tools on "everything" (up to 2 min; a first npx run downloads the server)
 created  /Users/you/.agentgw/agentgw.yaml
 created  /Users/you/.agentgw/policy.yaml    (… tools found on "everything"; … need approval)
 created  /Users/you/.agentgw/ledger.key     public key 3b1a…82fe
@@ -46,15 +51,17 @@ registered with Claude Code: claude mcp add --scope user everything -- /opt/home
   everything else is allowed. Keep the public key; it verifies the ledger
   anywhere.
 - The two key files are secrets. `approver.key` approves calls, so an agent
-  that can read it can approve itself, so keep it out of the agent's reach.
+  that can read it can approve itself. In this walkthrough it can: see
+  [Before you rely on it](#before-you-rely-on-it).
 - `init` registers the gateway with Claude Code for you, available from any
   directory. If `claude` is not on your PATH, it prints the `claude mcp add`
   command to run yourself.
-- The first `npx` run downloads the server and can take longer than `init`
-  waits (20 s). You then see `warning: could not list tools` and get a
-  generic template policy. To get rules for the real tools, delete
-  `~/.agentgw/policy.yaml` and run the same `init` command again; it keeps
-  every existing file and writes only the missing one.
+- If the server cannot be listed (for example, no network for the first `npx`
+  download), you see `warning: could not list tools` and get a generic
+  template policy. To get rules for the real tools, fix the cause and, while
+  `policy.yaml` is still the untouched file `init` wrote, delete it and run the
+  same `init` command again; it keeps every existing file and writes only the
+  missing one. Once you have edited the policy, edit it instead.
 
 ## 3. Watch
 
@@ -129,7 +136,27 @@ Edit any byte of `ledger.jsonl` and run it again to see it fail.
 Rules can also deny calls outright (`effect: deny`, which wins over every
 other rule) and cap spend with `prices` and `budgets`. `agentgw approvals
 list|approve|deny` decides held calls without `watch`. See
-`contracts/policy-yaml.md` for the full grammar.
+[`contracts/policy-yaml.md`](https://github.com/midspan-dev/agentgw/blob/main/contracts/policy-yaml.md) for the
+full grammar.
 
-The same `policy.yaml` runs in GitHub Actions, with approvals by comment while
-the job is still running: see [Run in GitHub Actions](github-actions).
+The same policy format runs in GitHub Actions, with a policy written for the
+GitHub MCP server and approvals by comment while the job is still running: see
+[Run in GitHub Actions](github-actions).
+
+## Before you rely on it
+
+Here Claude Code has its usual shell and file tools and runs as you, on the
+same machine as the gateway. It could read `~/.agentgw/approver.key` and
+approve its own calls, edit `policy.yaml`, rewrite the ledger with
+`ledger.key`, or start the MCP server without the gateway. The gateway only
+enforces policy on calls that go through it.
+
+For real enforcement the agent must have no tools except the gateway's: no
+shell, no file access, no other MCP servers. The
+[GitHub Actions example](github-actions#4-what-this-does-and-does-not-protect-against)
+is the tested configuration: Claude Code starts with every built-in tool
+removed and only the wrapped server's tools allowed, and
+[`COMPAT.md`](https://github.com/midspan-dev/agentgw/blob/main/examples/github-actions/COMPAT.md) records the
+evidence for the flags. Its
+[laptop run](https://github.com/midspan-dev/agentgw/blob/main/examples/github-actions/local.md) uses the same
+flags on your machine.

@@ -16,12 +16,13 @@ import (
 )
 
 // Discover starts command as an MCP server, lists its tools and shuts it down.
-// The whole call is bounded by 20 s; the process is killed 5 s after close.
+// The whole call is bounded by 2 min, long enough for a first `npx` download;
+// the process is killed 5 s after close.
 func Discover(ctx context.Context, command []string) ([]string, error) {
 	if len(command) == 0 {
 		return nil, fmt.Errorf("no command")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	cmd := exec.Command(command[0], command[1:]...)
 	client := mcp.NewClient(&mcp.Implementation{Name: "agentgw-init", Version: "v0"}, nil)
