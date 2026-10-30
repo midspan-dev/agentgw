@@ -48,7 +48,8 @@ registered with Claude Code: claude mcp add --scope user everything -- /opt/home
 
 - `policy.yaml` is a starter policy: tools whose names suggest a destructive
   or paid action (delete, refund, send, …) wait for your approval, and
-  everything else is allowed. Keep the public key; it verifies the ledger
+  every other tool is allowed (the playground's example policy denies
+  unmatched calls instead). Keep the public key; it verifies the ledger
   anywhere.
 - The two key files are secrets. `approver.key` approves calls, so an agent
   that can read it can approve itself. In this walkthrough it can: see
@@ -129,7 +130,14 @@ only the file and the public key `init` printed:
 agentgw verify ledger.jsonl <pubkey-hex>
 ```
 
-Edit any byte of `ledger.jsonl` and run it again to see it fail.
+To see it fail, tamper with a copy, not your working ledger:
+
+```sh
+cp ~/.agentgw/ledger.jsonl /tmp/ledger.jsonl
+```
+
+Edit any byte of `/tmp/ledger.jsonl`, then run
+`agentgw verify /tmp/ledger.jsonl <pubkey-hex>`.
 
 ## Next
 

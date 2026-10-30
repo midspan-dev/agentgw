@@ -36,9 +36,6 @@ claude -p "Issue #1 in you/your-repo. $(cat prompt.txt)" \
   --permission-mode dontAsk --disable-slash-commands --no-session-persistence
 ```
 
-Or register it for interactive use: `claude mcp add github -- agentgw run
---config $PWD/agentgw.local.yaml`.
-
 `watch` shows the triage comment as `allow … ok`, then a card for the held
 close. Type `a` and Enter to approve it, or `d` to deny. The comment edit is
 shown as `deny … denied`. Then:
