@@ -7,11 +7,10 @@ the issue waits until someone with write access replies `/approve`, and
 rewriting comments is refused. The workflow then uploads a signed record of
 every call, allowed or not, that you can verify anywhere.
 
-This page proves one thing: the same policy file makes the same decisions on
-your laptop and on a runner. The example has its own `policy.yaml`, written for
-the GitHub MCP server, in the format the quickstart uses. The example is in the
-[examples/github-actions](https://github.com/midspan-dev/agentgw/tree/main/examples/github-actions)
-directory of the repository.
+This example shows how to run agentgw in GitHub Actions. Its policy uses the
+same format as the quickstart, with rules for the GitHub MCP server's tools
+instead of the echo tool. You'll find the workflow and configuration in
+[examples/github-actions](https://github.com/midspan-dev/agentgw/tree/main/examples/github-actions).
 
 Needs: a GitHub repository you own, an Anthropic API key, and agentgw (see the
 [quickstart](quickstart)) to make two keys and verify the ledger.
@@ -150,8 +149,12 @@ than the policy allows.
 
 ## 5. Verify
 
-Download the `agentgw-ledger` artifact from the run and check it with the public
-key you saved:
+The job's "Upload the ledger" step saves the ledger as the `agentgw-ledger`
+artifact. Open the run from your repository's Actions tab and download it from
+the Artifacts section at the bottom of the run's summary page; it comes as a zip
+containing `ledger.jsonl`. With the GitHub CLI, `gh run download <run-id> -n
+agentgw-ledger` fetches and unzips it. Then check it with the public key you
+saved:
 
 ```sh
 agentgw verify ledger.jsonl <pubkey-hex>
