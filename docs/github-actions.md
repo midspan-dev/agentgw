@@ -1,10 +1,11 @@
 # Run in GitHub Actions
 
-One MCP policy, on your laptop and in GitHub Actions. Claude Code triages a new
-issue through the official GitHub MCP server, behind agentgw. A call the policy
-holds is approved by a `/approve` comment on the issue while the job is still
-running, and the signed ledger of the run is a workflow artifact you can verify
-anywhere.
+When someone opens an issue in your repository, a workflow starts Claude Code to
+triage it. Claude Code reaches GitHub only through agentgw, which applies your
+policy to every call: it may read the issue and comment, but closing or editing
+the issue waits until someone with write access replies `/approve`, and
+rewriting comments is refused. The workflow then uploads a signed record of
+every call, allowed or not, that you can verify anywhere.
 
 This page proves one thing: the same policy file makes the same decisions on
 your laptop and on a runner. The example has its own `policy.yaml`, written for
