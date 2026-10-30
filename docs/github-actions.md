@@ -1,16 +1,15 @@
 # Run in GitHub Actions
 
-When someone opens an issue in your repository, a workflow starts Claude Code to
-triage it. Claude Code reaches GitHub only through agentgw, which applies your
-policy to every call: it may read the issue and comment, but closing or editing
-the issue waits until someone with write access replies `/approve`, and
-rewriting comments is refused. The workflow then uploads a signed record of
-every call, allowed or not, that you can verify anywhere.
-
 This example shows how to run agentgw in GitHub Actions. Its policy uses the
 same format as the quickstart, with rules for the GitHub MCP server's tools
 instead of the echo tool. You'll find the workflow and configuration in
 [examples/github-actions](https://github.com/midspan-dev/agentgw/tree/main/examples/github-actions).
+
+How it works: a newly opened issue triggers a GitHub Actions workflow, which starts Claude Code to
+triage it. Claude Code reaches GitHub only through agentgw, which applies your
+policy to each MCP tool-call. The workflow's Claude agent may read the issue and comment, but closing or editing
+the issue (via the `write_issue` tool) requires approval, so it waits until someone with write access replies `/approve`.
+The workflow then uploads a signed record of every call, allowed or not, that you can verify anywhere.
 
 Needs: a GitHub repository you own, an Anthropic API key, and agentgw (see the
 [quickstart](quickstart)) to make two keys and verify the ledger.
