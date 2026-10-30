@@ -1,11 +1,12 @@
 # Quickstart
 
-One MCP policy, on your laptop first and then in GitHub Actions. Five minutes
-here: put agentgw in front of one MCP server, watch every tool call as
-it happens, hold one for your approval, and verify the signed ledger. We use
-the reference "everything" server because its `echo` tool is harmless.
+This walkthrough shows how to use agentgw with Claude Code on your laptop.
+You'll connect it to an MCP server, watch tool calls as they happen, and try
+approving and denying a call. Then you'll verify the signed record of those
+calls. We use the reference "everything" server so you can try this with its
+harmless `echo` tool.
 
-This walkthrough is a functional demo, not a security boundary: see
+The setup here is a functional demo, not a security boundary: see
 [Before you rely on it](#before-you-rely-on-it).
 
 Needs: Claude Code, Node.js (for `npx`), Homebrew.
