@@ -31,10 +31,12 @@ import (
 	"github.com/midspan-dev/agentgw/internal/approval"
 	"github.com/midspan-dev/agentgw/internal/budget"
 	"github.com/midspan-dev/agentgw/internal/ledger"
+	"github.com/midspan-dev/agentgw/internal/oauth"
 	"github.com/midspan-dev/agentgw/internal/pipeline"
 	"github.com/midspan-dev/agentgw/internal/policy"
 	"github.com/midspan-dev/agentgw/internal/policy/reload"
 	"github.com/midspan-dev/agentgw/internal/proxy"
+	"github.com/midspan-dev/agentgw/internal/proxy/httpcreds"
 	"github.com/midspan-dev/agentgw/pkg/contracts"
 	"github.com/oklog/ulid/v2"
 )
@@ -206,7 +208,26 @@ func gateway(ctx context.Context, mode string, args []string) error {
 		var routes []proxy.Route
 		for _, u := range cfg.Upstreams {
 			if u.URL != "" {
-				routes = append(routes, proxy.Route{Name: u.Name, Path: u.Path, URL: u.URL})
+				r := proxy.Route{Name: u.Name, Path: u.Path, URL: u.URL}
+				if u.Auth != nil && u.Auth.Kind == contracts.AuthKindAuthorizationCode {
+					secret, err := readSecret(*u.Auth)
+					if err != nil {
+						return fmt.Errorf("upstream %s: %w", u.Name, err)
+					}
+					r.Credential = oauth.NewCredential(oauth.CredentialOptions{Upstream: u.Name, URL: u.URL, Auth: *u.Auth, Secret: secret, Store: &oauth.Store{Path: u.Auth.TokenFile}})
+					fmt.Fprintf(os.Stderr, "upstream %s: credential %s (%s)\n", u.Name, u.Auth.Kind, u.Auth.TokenFile)
+					if _, err := os.Stat(u.Auth.TokenFile); errors.Is(err, os.ErrNotExist) {
+						fmt.Fprintf(os.Stderr, "upstream %s: not logged in; run agentgw login %s\n", u.Name, u.Name)
+					}
+				} else if u.Auth != nil {
+					cred, err := httpcreds.New(*u.Auth)
+					if err != nil {
+						return fmt.Errorf("upstream %s: %w", u.Name, err)
+					}
+					r.Credential = cred
+					fmt.Fprintf(os.Stderr, "upstream %s: credential %s\n", u.Name, u.Auth.Kind)
+				}
+				routes = append(routes, r)
 			}
 		}
 		if len(routes) == 0 {

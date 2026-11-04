@@ -14,3 +14,4 @@ dist/
 !testdata/**/*.jsonl
 .DS_Store
 .claude/worktrees/
+tokens/

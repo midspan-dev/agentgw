@@ -5,7 +5,13 @@
   "listen": ":8080",
   "upstreams": [
     { "name": "stripe", "command": ["npx", "-y", "@stripe/mcp"] },
-    { "name": "search", "url": "https://search.example.com/mcp", "path": "/search" }
+    { "name": "search", "url": "https://search.example.com/mcp", "path": "/search",
+      "auth": { "kind": "header", "header": "Authorization", "prefix": "Bearer ", "secret_env": "SEARCH_API_KEY" } },
+    { "name": "crm", "url": "https://crm.example.com/mcp", "path": "/crm",
+      "auth": { "kind": "client_credentials", "token_url": "https://auth.example.com/oauth/token", "client_id": "agentgw",
+                "secret_file": "crm-client-secret", "scopes": ["mcp:tools"], "resource": "https://crm.example.com/mcp" } },
+    { "name": "docs", "url": "https://mcp.docs.example.com/mcp", "path": "/docs",
+      "auth": { "kind": "authorization_code" } }
   ],
   "policy_path": "policy.yaml",
   "prices": [

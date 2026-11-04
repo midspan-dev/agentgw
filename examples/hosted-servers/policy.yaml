@@ -1,0 +1,33 @@
+# Rules match "<upstream>.<tool>"; the upstreams are named in agentgw.yaml.
+# Linear's write tools are from its tools/list on 2026-11-02. GitHub's are the
+# issues toolset of github-mcp-server v2.0.3 (see examples/github-actions);
+# the hosted server may differ. Servers add tools: check `agentgw watch`.
+version: "1"
+currency: USD
+rules:
+  # A human decides every write, on either server, in `agentgw watch`.
+  - id: writes-need-approval
+    effect: require_approval
+    tools:
+      - "github.issue_write"
+      - "github.sub_issue_write"
+      - "github.add_issue_comment"
+      - "github.update_issue_comment"
+      - "linear.save_*"
+      - "linear.create_*"
+      - "linear.delete_*"
+      - "linear.retire_*"
+      - "linear.restore_*"
+      - "linear.prepare_*"
+      - "linear.update_diff"
+      - "linear.merge_diff"
+      - "linear.submit_diff_review"
+      - "linear.resolve_diff_thread"
+      - "linear.share_issue"
+      - "linear.unshare_issue"
+      - "linear.mark_notification"
+    timeout: 10m
+  # Reads go through.
+  - id: allow-rest
+    effect: allow
+    tools: ["*"]

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agentgw.dev/schemas/v1/config.schema.json",
   "title": "agentgw gateway config",
-  "description": "The gateway's local config file (YAML or JSON; YAML is parsed as JSON). One gateway process serves one agent identity. Relative paths resolve against the config file's directory. Version 1 (rev 9, gap-007: optional approvals.github).",
+  "description": "The gateway's local config file (YAML or JSON; YAML is parsed as JSON). One gateway process serves one agent identity. Relative paths resolve against the config file's directory. Version 1 (rev 13, docs/adr/0013: upstreams[].auth kind authorization_code, token_file, issuer).",
   "type": "object",
   "properties": {
     "version": {
@@ -38,7 +38,7 @@
     "upstreams": {
       "type": "array",
       "minItems": 1,
-      "description": "MCP servers behind the gateway. Exactly one of command or url per upstream. `agentgw run -- cmd` adds a stdio upstream named by --server (default 'default') without touching this list.",
+      "description": "MCP servers behind the gateway. Exactly one of command or url per upstream; auth only with url. `agentgw run -- cmd` adds a stdio upstream named by --server (default 'default') without touching this list.",
       "items": {
         "type": "object",
         "properties": {
@@ -62,6 +62,268 @@
             "type": "string",
             "pattern": "^/",
             "description": "Path prefix the gateway serves this upstream on in HTTP mode. Required with url."
+          },
+          "auth": {
+            "type": "object",
+            "description": "Credential the gateway holds for this url upstream (docs/adr/0012, 0013). The secret comes from secret_env or secret_file (exactly one for kind header and client_credentials; at most one for authorization_code), never from this file and never from the client: the client's Authorization header is dropped before forwarding. kind header: send `<header>: <prefix><secret>`. kind client_credentials: OAuth 2.0 client credentials grant (RFC 6749 4.4) at token_url, client_secret_basic, token cached until shortly before expires_in, sent as `Authorization: Bearer <token>`. kind authorization_code: browser login once with `agentgw login <name>` (PKCE, loopback redirect, discovery per RFC 9728/8414, dynamic registration when client_id is empty); tokens live in token_file and are refreshed by the gateway; refresh failure fails calls closed and asks for a new login. Any failure to produce the credential fails the call closed.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "header",
+                  "client_credentials",
+                  "authorization_code"
+                ]
+              },
+              "header": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]+$",
+                "description": "kind header: header name, e.g. Authorization or X-Api-Key."
+              },
+              "prefix": {
+                "type": "string",
+                "description": "kind header: prepended verbatim to the secret, e.g. \"Bearer \". Default empty."
+              },
+              "secret_env": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Environment variable holding the header value (kind header) or the client secret (kind client_credentials; optional for authorization_code with a pre-registered confidential client_id). Must be set and non-empty at startup."
+              },
+              "secret_file": {
+                "type": "string",
+                "minLength": 1,
+                "description": "File holding the secret, relative to the config file's directory. Trailing newline trimmed."
+              },
+              "token_url": {
+                "type": "string",
+                "format": "uri",
+                "description": "kind client_credentials: the token endpoint. (authorization_code discovers it.)"
+              },
+              "client_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "kind client_credentials: required. kind authorization_code: optional; empty means dynamic client registration (RFC 7591) at login; an HTTPS URL is passed verbatim (MCP Client ID Metadata Document)."
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "kinds client_credentials and authorization_code: sent space-joined as `scope`. Omitted when empty (authorization_code then uses the server's advertised scopes)."
+              },
+              "resource": {
+                "type": "string",
+                "format": "uri",
+                "description": "kinds client_credentials and authorization_code: RFC 8707 `resource` parameter. Omitted when empty for client_credentials; defaults to the protected-resource metadata's resource, else url, for authorization_code."
+              },
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "kind authorization_code: the authorization server (RFC 8414 issuer URL) login uses instead of the protected-resource metadata's authorization_servers[0]; the fetched metadata's issuer must equal it. Required when secret_env or secret_file is set (a configured secret must never be sent to a server the upstream chose), optional otherwise."
+              },
+              "token_file": {
+                "type": "string",
+                "minLength": 1,
+                "description": "kind authorization_code: token file (contracts/schemas/token-file.schema.json) written by `agentgw login`, relative to the config file's directory. Default `<dir of state_path>/tokens/<name>.json`."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "header"
+                    }
+                  }
+                },
+                "then": {
+                  "allOf": [
+                    {
+                      "required": [
+                        "header"
+                      ]
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "required": [
+                            "secret_env"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "secret_file"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "token_url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "client_id"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "scopes"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "resource"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "token_file"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "issuer"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "client_credentials"
+                    }
+                  }
+                },
+                "then": {
+                  "allOf": [
+                    {
+                      "required": [
+                        "token_url",
+                        "client_id"
+                      ]
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "required": [
+                            "secret_env"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "secret_file"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "header"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "prefix"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "token_file"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "issuer"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "authorization_code"
+                    }
+                  }
+                },
+                "then": {
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "secret_env",
+                          "secret_file"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "header"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "prefix"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "token_url"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "secret_env"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "secret_file"
+                            ]
+                          }
+                        ]
+                      },
+                      "then": {
+                        "required": [
+                          "issuer"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
           }
         },
         "required": [
@@ -82,6 +344,11 @@
                 {
                   "required": [
                     "path"
+                  ]
+                },
+                {
+                  "required": [
+                    "auth"
                   ]
                 }
               ]

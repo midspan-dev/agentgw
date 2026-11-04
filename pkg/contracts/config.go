@@ -24,13 +24,65 @@ type AgentIdentity struct {
 }
 
 // Upstream is one MCP server behind the gateway. Exactly one of Command or
-// URL is set; Path accompanies URL.
+// URL is set; Path accompanies URL; Auth is optional and only valid with URL
+// (rev 11, docs/adr/0012).
 type Upstream struct {
-	Name    string   `json:"name" yaml:"name"`
-	Command []string `json:"command,omitempty" yaml:"command,omitempty"`
-	URL     string   `json:"url,omitempty" yaml:"url,omitempty"`
-	Path    string   `json:"path,omitempty" yaml:"path,omitempty"`
+	Name    string        `json:"name" yaml:"name"`
+	Command []string      `json:"command,omitempty" yaml:"command,omitempty"`
+	URL     string        `json:"url,omitempty" yaml:"url,omitempty"`
+	Path    string        `json:"path,omitempty" yaml:"path,omitempty"`
+	Auth    *UpstreamAuth `json:"auth,omitempty" yaml:"auth,omitempty"`
 }
+
+// UpstreamAuth is the credential the gateway holds for one URL upstream
+// (docs/adr/0012). The secret comes from exactly one of SecretEnv or
+// SecretFile, never from the config file and never from the client; the
+// proxy drops the client's Authorization header before applying it.
+type UpstreamAuth struct {
+	// Kind is "header" or "client_credentials".
+	Kind string `json:"kind" yaml:"kind"`
+	// Header (kind header) is the header name, e.g. "Authorization" or "X-Api-Key".
+	Header string `json:"header,omitempty" yaml:"header,omitempty"`
+	// Prefix (kind header) is prepended verbatim to the secret, e.g. "Bearer ".
+	Prefix string `json:"prefix,omitempty" yaml:"prefix,omitempty"`
+	// SecretEnv names the environment variable holding the header value or
+	// the client secret; it must be set and non-empty at startup.
+	SecretEnv string `json:"secret_env,omitempty" yaml:"secret_env,omitempty"`
+	// SecretFile is the file holding the secret, resolved against the config
+	// file's directory like every other path; a trailing newline is trimmed.
+	SecretFile string `json:"secret_file,omitempty" yaml:"secret_file,omitempty"`
+	// TokenURL (kind client_credentials) is the OAuth 2.0 token endpoint.
+	TokenURL string `json:"token_url,omitempty" yaml:"token_url,omitempty"`
+	// ClientID (kind client_credentials) is sent with client_secret_basic.
+	ClientID string `json:"client_id,omitempty" yaml:"client_id,omitempty"`
+	// Scopes (kind client_credentials) are sent space-joined as `scope`.
+	Scopes []string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	// Resource (kinds client_credentials, authorization_code) is the RFC 8707
+	// `resource` parameter. For authorization_code, empty means the
+	// protected-resource metadata's resource, else the upstream URL.
+	Resource string `json:"resource,omitempty" yaml:"resource,omitempty"`
+	// Issuer (kind authorization_code) is the authorization server (RFC
+	// 8414 issuer URL) login uses instead of the protected-resource
+	// metadata's authorization_servers[0]; the fetched metadata's issuer must
+	// equal it. Required when SecretEnv or SecretFile is set, so a configured
+	// secret is never sent to a server the upstream chose; optional otherwise.
+	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	// TokenFile (kind authorization_code) is the token file written by
+	// `agentgw login` (TokenFile type, contracts/schemas/token-file.schema.json),
+	// resolved against the config file's directory. Empty means
+	// `<dir of state_path>/tokens/<name>.json`.
+	TokenFile string `json:"token_file,omitempty" yaml:"token_file,omitempty"`
+}
+
+// Upstream auth kinds. For AuthKindAuthorizationCode (docs/adr/0013):
+// ClientID empty means dynamic client registration at login; SecretEnv and
+// SecretFile are optional (confidential pre-registered client) and require
+// Issuer; Header, Prefix and TokenURL are not allowed.
+const (
+	AuthKindHeader            = "header"
+	AuthKindClientCredentials = "client_credentials"
+	AuthKindAuthorizationCode = "authorization_code"
+)
 
 // Price is one price-table row. Estimate = PerCall + args[ArgField]*ArgMultiplier
 // in Config.Currency units; the budgets node converts to Money with

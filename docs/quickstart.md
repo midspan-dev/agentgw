@@ -148,6 +148,9 @@ list|approve|deny` decides held calls without `watch`. See
 [`contracts/policy-yaml.md`](https://github.com/midspan-dev/agentgw/blob/main/contracts/policy-yaml.md) for the
 full grammar.
 
+To put a hosted MCP server behind the gateway, with the gateway holding its
+API key or your browser sign-in, see [Hosted MCP servers](hosted-servers).
+
 The same policy format runs in GitHub Actions, with a policy written for the
 GitHub MCP server and approvals by comment while the job is still running: see
 [Run in GitHub Actions](github-actions).

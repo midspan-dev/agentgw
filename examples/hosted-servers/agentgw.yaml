@@ -1,0 +1,41 @@
+# agentgw config for two hosted MCP servers behind `agentgw serve`.
+# Paths are relative to this file. No secret is in this file.
+version: "1"
+agent:
+  id: hosted-example
+  owner: you@example.com # CHANGE: your email or login; recorded in the ledger
+currency: USD
+listen: 127.0.0.1:8787
+upstreams:
+  # GitHub's hosted MCP server, issues toolset only, with a personal access
+  # token the gateway sends as a header. GitHub's sign-in server offers no
+  # client registration, so a token is the simplest way in.
+  - name: github
+    url: https://api.githubcopilot.com/mcp/x/issues
+    path: /github
+    auth:
+      kind: header
+      header: Authorization
+      prefix: "Bearer "
+      secret_env: GITHUB_TOKEN
+  # Linear's hosted MCP server, with your own browser sign-in:
+  # `agentgw login --config agentgw.yaml linear` registers the gateway as a
+  # client and writes tokens/linear.json, which `serve` refreshes.
+  - name: linear
+    url: https://mcp.linear.app/mcp
+    path: /linear
+    auth:
+      kind: authorization_code
+policy_path: policy.yaml
+prices: []
+redaction:
+  fields: [authorization, token]
+  patterns: []
+approvals:
+  cli:
+    token_path: approver.key
+ledger:
+  path: ledger.jsonl
+  checkpoint_every: 100
+key_path: ledger.key
+state_path: agentgw.db

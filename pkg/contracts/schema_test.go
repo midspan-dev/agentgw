@@ -23,6 +23,7 @@ var documents = []struct {
 	{"checkpoint", &Checkpoint{}},
 	{"config", &Config{}},
 	{"policy", &PolicyFile{}},
+	{"token-file", &TokenFile{}},
 }
 
 func compiler(t *testing.T) *jsonschema.Compiler {
