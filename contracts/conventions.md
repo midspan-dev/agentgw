@@ -35,4 +35,29 @@ Rules the gateway applies that no schema expresses.
   tools/call and passthrough alike. Anything that fails the parse is answered
   with a JSON-RPC error or dropped, never forwarded. Rationale: a parser
   differential between the gateway and the upstream is a policy bypass, and a
-  redirect would carry injected credentials to another host.
+  redirect would carry injected credentials to another host. An upstream
+  with an `auth` block (docs/adr/0012) never receives the client's
+  `Authorization` header: the proxy deletes it and applies the gateway-held
+  credential when it builds each outbound request; if the credential cannot
+  be produced nothing is forwarded.
+- **HTTPS for credentials** (config load): an upstream with an `auth` block
+  must have an https `url`, or an http `url` whose host is exactly
+  `127.0.0.1`, `localhost` or `::1`. The same holds for `token_url` (kind
+  `client_credentials`) and `issuer` (kind `authorization_code`; `issuer`
+  additionally has no query, fragment or userinfo). A relative URL or one
+  without a host fails too. A violation is a config load error; upstreams
+  without `auth` are not restricted. Rationale: the credential travels with
+  every request.
+- **HTTP listener guard** (proxy): before any route matches and before the
+  body is read, every request on the `listen` address, any method (GET opens
+  a stream), passes two checks. Host: when the listener address is loopback,
+  the request `Host` must be `localhost` (case-insensitive) or a loopback IP,
+  with or without a port; listeners on other addresses do not check `Host`,
+  since the gateway cannot know its public name. Origin: a request with an
+  `Origin` header is refused unless the Origin's host:port equals `Host`
+  under `strings.EqualFold` (textual, no default-port normalisation); `null`
+  is refused; a request without `Origin` is allowed, since non-browser MCP
+  clients send none. A refused request is answered HTTP 403 with a JSON-RPC
+  error, id `null`, code -32600, and nothing is forwarded. Rationale: the
+  gateway holds upstream credentials, so a web page must not be able to spend
+  them through a cross-site request or DNS rebinding.

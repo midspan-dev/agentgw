@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"time"
 )
 
@@ -242,4 +243,18 @@ type Approver interface {
 	// run grants with p.RunID, scope agent grants with p.AgentID, Until in the
 	// future. Never nil on success.
 	Grants(ctx context.Context, p Principal) ([]Grant, error)
+}
+
+// UpstreamCredential supplies the gateway-held credential for one URL
+// upstream (docs/adr/0012; built from UpstreamAuth by internal/proxy/httpcreds).
+// The proxy deletes the client's Authorization header (every value, any
+// case) and then calls Apply on the headers of each outbound request it
+// builds, on the passthrough and the held tools/call path alike. Apply sets
+// headers with Set (replacing any client value under the same name) and
+// never reads the request. An error fails the request closed: nothing is
+// forwarded, tools/call answers a JSON-RPC error wrapping ErrNotSent,
+// passthrough answers 502. Error text never contains a secret or token.
+// Safe for concurrent use.
+type UpstreamCredential interface {
+	Apply(ctx context.Context, h http.Header) error
 }

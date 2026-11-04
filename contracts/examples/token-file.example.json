@@ -1,0 +1,13 @@
+{
+  "version": "1",
+  "upstream": "docs",
+  "resource": "https://mcp.docs.example.com/mcp",
+  "issuer": "https://auth.docs.example.com",
+  "token_endpoint": "https://auth.docs.example.com/oauth/token",
+  "client_id": "dcr-7f3a9c",
+  "client_secret": "s3cr3t-issued-by-dcr",
+  "access_token": "eyJhbGciOiJSUzI1NiJ9.e30.placeholder",
+  "expires_at": "2026-11-02T10:15:00Z",
+  "refresh_token": "rt-0f1e2d3c",
+  "scope": "mcp:tools"
+}

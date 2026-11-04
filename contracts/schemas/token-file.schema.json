@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentgw.dev/schemas/v1/token-file.schema.json",
+  "title": "agentgw upstream token file",
+  "description": "Tokens the gateway holds for one authorization_code upstream (docs/adr/0013). Written by `agentgw login <name>` and rewritten on every refresh; mode 0600, replaced atomically, serialised across processes by an exclusive flock on `<file>.lock`. Self-contained: copying it to another machine moves the credential. Version 1 (rev 14: issuer).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "common.schema.json#/$defs/version"
+    },
+    "upstream": {
+      "$ref": "common.schema.json#/$defs/server_name",
+      "description": "Upstream name this file belongs to; the gateway refuses a file whose name differs."
+    },
+    "resource": {
+      "type": "string",
+      "format": "uri",
+      "description": "RFC 8707 resource the tokens were issued for. At serve time it must identify the upstream url (same scheme, host and port; the url path equals it or extends it at a /) or equal auth.resource when that is configured; otherwise the file is refused."
+    },
+    "issuer": {
+      "type": "string",
+      "format": "uri",
+      "description": "Authorization server the tokens came from (the metadata issuer at login). When the upstream's auth.issuer is set, the gateway refuses a file whose issuer differs."
+    },
+    "token_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "From authorization-server metadata at login; refresh uses it without rediscovery."
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "client_secret": {
+      "type": "string",
+      "description": "Only when dynamic registration issued one; then refresh uses client_secret_basic."
+    },
+    "access_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC. Refresh when fewer than 60 s remain."
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "Replaced on every refresh that rotates it. Empty: the access token cannot be renewed; login again when it expires."
+    },
+    "scope": {
+      "type": "string",
+      "description": "Space-separated scopes granted, as the token response reported them (or as requested when it did not)."
+    }
+  },
+  "required": [
+    "version",
+    "upstream",
+    "resource",
+    "issuer",
+    "token_endpoint",
+    "client_id",
+    "access_token",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

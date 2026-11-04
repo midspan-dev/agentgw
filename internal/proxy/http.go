@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
@@ -28,7 +29,11 @@ var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request
 
 // Route maps a path prefix on the gateway to one upstream Streamable HTTP
 // endpoint. Name becomes Call.Server.
-type Route struct{ Name, Path, URL string }
+type Route struct {
+	Name, Path, URL string
+	// Credential, when non-nil, replaces the client's Authorization on every outbound request.
+	Credential contracts.UpstreamCredential
+}
 
 // HTTP serves the routes on listen until ctx is done. The server is
 // stateless (no Mcp-Session-Id), matching the 2026-07-28 protocol.
@@ -61,7 +66,7 @@ func HTTP(ctx context.Context, listen string, routes []Route, i contracts.Interc
 		mux.Handle(p, h)
 		mux.Handle(p+"/", h)
 	}
-	srv := &http.Server{Addr: listen, Handler: mux}
+	srv := &http.Server{Addr: listen, Handler: browserGuard(listen, mux)}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	select {
@@ -84,11 +89,74 @@ type routeHandler struct {
 	next  atomic.Int64 // proxy-owned request ids
 }
 
+// browserGuard stops web pages from using the gateway, and so its held
+// credentials. A loopback listener only answers to a loopback Host (DNS
+// rebinding), and an Origin, which browsers send and MCP clients do not, must
+// match Host (cross-site requests). Checked for every method: GET opens a stream.
+func browserGuard(listen string, next http.Handler) http.Handler {
+	loopback := isLoopback(listen)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		allowed := !loopback || isLoopback(r.Host)
+		if o := r.Header.Get("Origin"); o != "" {
+			u, err := url.Parse(o)
+			allowed = allowed && err == nil && strings.EqualFold(u.Host, r.Host)
+		}
+		if !allowed {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write(rpcError(nil, -32600, "origin or host not allowed"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isLoopback reports whether a host or host:port names this machine's loopback.
+func isLoopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = strings.Trim(addr, "[]")
+	}
+	ip := net.ParseIP(host)
+	return strings.EqualFold(host, "localhost") || (ip != nil && ip.IsLoopback())
+}
+
 // reject answers a malformed request; nothing is forwarded.
 func reject(w http.ResponseWriter, text string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write(rpcError(nil, -32600, text))
+}
+
+// dropConnection removes Connection and the headers it names, as a proxy must.
+// Done before a credential is applied: ReverseProxy would otherwise strip the
+// credential when the client names its header.
+func dropConnection(h http.Header) {
+	for _, v := range h["Connection"] {
+		for f := range strings.SplitSeq(v, ",") {
+			if f = strings.TrimSpace(f); f != "" {
+				h.Del(f)
+			}
+		}
+	}
+	h.Del("Connection")
+}
+
+// credential swaps the client's Authorization for the route's; false means it answered 502.
+func (h *routeHandler) credential(w http.ResponseWriter, r *http.Request) bool {
+	c := h.route.Credential
+	if c == nil {
+		return true
+	}
+	dropConnection(r.Header)
+	r.Header.Del("Authorization")
+	if err := c.Apply(r.Context(), r.Header); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write(rpcError(nil, -32603, "upstream credential: "+err.Error()))
+		return false
+	}
+	return true
 }
 
 func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +167,9 @@ func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		r.Body, r.ContentLength = http.NoBody, 0 // client bytes never go upstream
+		if !h.credential(w, r) {
+			return
+		}
 		h.rp.ServeHTTP(w, r)
 		return
 	}
@@ -127,6 +198,9 @@ func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Body = io.NopCloser(bytes.NewReader(out))
 		r.ContentLength = int64(len(out))
 		r.Header.Set("Content-Length", strconv.Itoa(len(out)))
+		if !h.credential(w, r) {
+			return
+		}
 		h.rp.ServeHTTP(w, r)
 		return
 	}
@@ -162,16 +236,24 @@ func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// "The write began" is acquiring a connection (GotConn): a failure before it is a
 		// dial, DNS or TLS failure or ctx done while connecting, so nothing was written.
 		var gotConn atomic.Bool
+		applyCtx := ctx // untraced: the token fetch's connection is not the upstream's
 		ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{GotConn: func(httptrace.GotConnInfo) { gotConn.Store(true) }})
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.route.URL, bytes.NewReader(out))
 		if err != nil {
 			return nil, notSent(err)
 		}
 		req.Header = r.Header.Clone()
+		dropConnection(req.Header)
 		req.Header.Del("Content-Length")
 		req.Header.Del("Accept-Encoding") // let the transport negotiate and decode gzip itself
 		req.Header.Set("Mcp-Method", "tools/call")
 		req.Header.Set("Mcp-Name", tool)
+		if c := h.route.Credential; c != nil { // at send time: a held call may outlive the token
+			req.Header.Del("Authorization")
+			if err := c.Apply(applyCtx, req.Header); err != nil {
+				return nil, notSent(err)
+			}
+		}
 		resp, err := noRedirect.Do(req)
 		if err != nil {
 			if !gotConn.Load() {
