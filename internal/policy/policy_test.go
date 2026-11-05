@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -477,5 +478,36 @@ func TestVersionIsSHA256(t *testing.T) {
 	sum := sha256.Sum256([]byte(p.Cedar()))
 	if p.Version() != hex.EncodeToString(sum[:]) {
 		t.Error("version is not sha256 of cedar")
+	}
+}
+
+// The public hosted example promises approval for named writes and denial for
+// everything unnamed, so a catch-all sneaking back in must fail here.
+func TestExampleHostedServersPolicy(t *testing.T) {
+	src, err := os.ReadFile("../../examples/hosted-servers/policy.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := Compile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for tool, want := range map[string]contracts.Outcome{
+		"github.list_issues":       contracts.OutcomeAllow,
+		"linear.list_teams":        contracts.OutcomeAllow,
+		"linear.get_issue":         contracts.OutcomeAllow,
+		"github.add_issue_comment": contracts.OutcomeRequireApproval,
+		"linear.save_issue":        contracts.OutcomeRequireApproval,
+		"linear.delete_comment":    contracts.OutcomeRequireApproval,
+		"linear.brand_new_tool":    contracts.OutcomeDeny,
+		"github.brand_new_tool":    contracts.OutcomeDeny,
+	} {
+		out, err := p.Decide(context.Background(), call{agent: "hosted-example", tool: tool}.input())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Outcome != want {
+			t.Errorf("%s: outcome %q, want %q (rule %s)", tool, out.Outcome, want, out.RuleID)
+		}
 	}
 }

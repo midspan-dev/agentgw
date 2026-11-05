@@ -1,11 +1,15 @@
 # Rules match "<upstream>.<tool>"; the upstreams are named in agentgw.yaml.
-# Linear's write tools are from its tools/list on 2026-11-02. GitHub's are the
-# issues toolset of github-mcp-server v2.0.3 (see examples/github-actions);
-# the hosted server may differ. Servers add tools: check `agentgw watch`.
+# Linear's write tools are from its tools/list on 2026-11-02. GitHub's tools are
+# the issues toolset of github-mcp-server v2.0.3 (see examples/github-actions);
+# the hosted server may differ.
+#
+# There is no catch-all: tools that match no rule are denied. New tools matching
+# an existing prefix inherit that rule's behavior. `agentgw watch` shows a denied
+# tool's name; add it to one of the rules.
 version: "1"
 currency: USD
 rules:
-  # A human decides every write, on either server, in `agentgw watch`.
+  # A human decides every listed write, in `agentgw watch`.
   - id: writes-need-approval
     effect: require_approval
     tools:
@@ -27,7 +31,16 @@ rules:
       - "linear.unshare_issue"
       - "linear.mark_notification"
     timeout: 10m
-  # Reads go through.
-  - id: allow-rest
+  # Listed reads go through.
+  - id: reads
     effect: allow
-    tools: ["*"]
+    tools:
+      - "github.issue_read"
+      - "github.list_issues"
+      - "github.search_issues"
+      - "github.get_label"
+      - "github.list_issue_fields"
+      - "github.list_issue_types"
+      - "linear.list_*"
+      - "linear.get_*"
+      - "linear.search_*"

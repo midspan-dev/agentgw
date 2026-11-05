@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "github": { "type": "http", "url": "http://127.0.0.1:8787/github" },
+    "linear": { "type": "http", "url": "http://127.0.0.1:8787/linear" }
+  }
+}
